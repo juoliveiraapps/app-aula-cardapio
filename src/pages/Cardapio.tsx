@@ -336,8 +336,8 @@ const Cardapio: React.FC = () => {
   loading="lazy"
 />
               <div className="flex-1">
-                <h1 className="text-xl md:text-3xl font-bold text-primary-900 mb-0.5 md:mb-1">Roast Coffee</h1>
-                <p className="text-primary-600 text-sm md:text-lg">O melhor café da região</p>
+             <h1 className="text-xl md:text-3xl font-bold text-[#400b0b] mb-0.5 md:mb-1">Coffee House</h1>
+<p className="text-[#400b0b]/80 text-sm md:text-lg">O melhor café da cidade</p>
               </div>
             </div>
           </div>
