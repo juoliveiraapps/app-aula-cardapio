@@ -332,7 +332,7 @@ const Cardapio: React.FC = () => {
               <img 
   src="/logo-cardapio.png"
   alt="Roast Coffee"
-  className="h-32 w-auto"  // Aumenta para 6rem (96px)
+  className="h-38 w-auto"  // Aumenta para 6rem (96px)
   loading="lazy"
 />
               <div className="flex-1">
