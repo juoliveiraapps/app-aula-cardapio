@@ -41,7 +41,7 @@ export const ModalComandas: React.FC<ModalComandasProps> = ({
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[70] p-4">
       <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="bg-primary-900 text-white p-4 text-center relative">
+       <div className="bg-gradient-to-r from-[#e58840] to-[#e58840]/90 text-[#400b0b] p-4 text-center relative shadow-md">
           <h2 className="text-xl font-bold">Sua Comanda</h2>
           <p className="text-secondary-200 text-sm">Para consumo no local</p>
           <button
