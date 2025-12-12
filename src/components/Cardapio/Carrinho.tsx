@@ -159,7 +159,7 @@ export const Carrinho: React.FC<CarrinhoProps> = ({
 
         {/* Footer - CORRIGIDO PARA SEMPRE MOSTRAR "CONTINUAR" */}
         {itens.length > 0 && (
-          <div className="p-3 md:p-4 border-t border-primary-200 bg-white">
+         <div className="p-3 md:p-4 border-t border-[#400b0b]/10 bg-white">
             <div className="space-y-2 mb-3 md:mb-4">
               <div className="flex justify-between text-xs md:text-sm">
                 <span className="text-primary-600">Subtotal ({totalItens} itens):</span>
