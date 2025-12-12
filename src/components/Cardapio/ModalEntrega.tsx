@@ -49,7 +49,7 @@ export const ModalEntrega: React.FC<ModalEntregaProps> = ({
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[60] p-4">
       <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="bg-primary-900 text-white p-4 text-center relative">
+        <div className="bg-[#e58840] text-[#400b0b] p-4 text-center relative">
           <h2 className="text-xl font-bold">Como vai ser hoje?</h2>
           <p className="text-secondary-200 text-sm">Escolha como deseja receber seu pedido</p>
           <button
