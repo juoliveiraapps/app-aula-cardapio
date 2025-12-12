@@ -180,7 +180,7 @@ export const ModalOpcoes: React.FC<ModalOpcoesProps> = ({
           </div>
           <button
             onClick={handleConfirmar}
-            className="w-full bg-primary-900 text-white py-2.5 md:py-3 rounded-lg md:rounded-xl font-bold text-xs md:text-sm hover:bg-primary-800 transition-all duration-300"
+            className="w-full bg-[#e58840] text-[#400b0b] py-2.5 md:py-3 rounded-lg md:rounded-xl font-bold text-xs md:text-sm hover:bg-[#e58840]/90 active:scale-[0.98] transition-all duration-300 shadow-sm hover:shadow-md"
           >
             Adicionar ao Carrinho
           </button>
