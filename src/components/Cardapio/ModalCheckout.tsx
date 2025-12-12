@@ -595,30 +595,79 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
                 </div>
               )}
 
-              {/* Forma de Pagamento */}
-              <div className="mb-6">
-                <h3 className="font-bold text-[#400b0b] mb-3">Forma de Pagamento</h3>
-                <div className="space-y-2">
-                  {['dinheiro', 'cartao', 'pix'].map((forma) => (
-                    <label key={forma} className={`flex items-center p-3 border border-[#400b0b]/20 rounded-lg hover:bg-[#e58840]/5 cursor-pointer transition-all duration-300 ${enviando ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                      <input
-                        type="radio"
-                        name="formaPagamento"
-                        value={forma}
-                        checked={formaPagamento === forma}
-                        onChange={(e) => setFormaPagamento(e.target.value)}
-                        disabled={enviando}
-                        className="text-[#e58840] focus:ring-[#e58840]"
-                      />
-                      <span className="ml-3 font-medium text-[#400b0b]">
-                        {forma === 'dinheiro' ? 'Dinheiro' : 
-                         forma === 'cartao' ? 'Cartão na entrega/retirada' : 
-                         'PIX'}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </div>
+            {/* Forma de Pagamento */}
+<div className="mb-6">
+  <h3 className="font-bold text-[#400b0b] mb-3">Forma de Pagamento</h3>
+  <div className="space-y-2">
+    {['dinheiro', 'cartao', 'pix'].map((forma) => (
+      <label 
+        key={forma} 
+        className={`flex items-center p-3 border rounded-lg cursor-pointer transition-all duration-300 ${
+          formaPagamento === forma
+            ? 'border-[#e58840] bg-[#e58840]/10 shadow-sm'
+            : 'border-[#400b0b]/20 hover:border-[#400b0b]/30 hover:bg-[#e58840]/5'
+        } ${enviando ? 'opacity-50 cursor-not-allowed' : ''}`}
+      >
+        {/* Radio button personalizado */}
+        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mr-3 transition-all duration-300 ${
+          formaPagamento === forma
+            ? 'border-[#e58840] bg-[#e58840]'
+            : 'border-[#400b0b]/30 bg-white'
+        }`}>
+          {formaPagamento === forma && (
+            <div className="w-2 h-2 rounded-full bg-[#400b0b]"></div>
+          )}
+        </div>
+        
+        {/* Input hidden */}
+        <input
+          type="radio"
+          name="formaPagamento"
+          value={forma}
+          checked={formaPagamento === forma}
+          onChange={(e) => setFormaPagamento(e.target.value)}
+          disabled={enviando}
+          className="hidden" // Esconde o input nativo
+        />
+        
+        {/* Texto da opção */}
+        <div className="flex-1">
+          <span className="font-medium text-[#400b0b]">
+            {forma === 'dinheiro' ? 'Dinheiro' : 
+             forma === 'cartao' ? 'Cartão na entrega/retirada' : 
+             'PIX'}
+          </span>
+          
+          {/* Descrição adicional para PIX */}
+          {forma === 'pix' && (
+            <p className="text-xs text-[#400b0b]/60 mt-1">
+              QR Code será mostrado na confirmação
+            </p>
+          )}
+        </div>
+        
+        {/* Ícone para cada opção */}
+        <div className={`ml-2 p-1.5 rounded-full ${
+          formaPagamento === forma ? 'bg-[#e58840]/20' : 'bg-[#400b0b]/5'
+        }`}>
+          {forma === 'dinheiro' ? (
+            <svg className="w-4 h-4 text-[#400b0b]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          ) : forma === 'cartao' ? (
+            <svg className="w-4 h-4 text-[#400b0b]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+            </svg>
+          ) : (
+            <svg className="w-4 h-4 text-[#400b0b]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+          )}
+        </div>
+      </label>
+    ))}
+  </div>
+</div>
 
               {/* Opção WhatsApp (apenas para retirada e delivery) */}
               {(tipoEntrega === 'retirada' || tipoEntrega === 'delivery') && (
