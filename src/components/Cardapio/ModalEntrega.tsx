@@ -193,15 +193,15 @@ export const ModalEntrega: React.FC<ModalEntregaProps> = ({
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="p-4 border-t border-gray-200">
+      {/* Footer */}
+        <div className="p-4 border-t border-[#400b0b]/10">
           <button
             onClick={handleConfirmar}
             disabled={!tipoSelecionado}
             className={`w-full py-3 rounded-xl font-bold transition-all duration-300 ${
               tipoSelecionado
-                ? 'bg-primary-900 text-white hover:bg-primary-800'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                ? 'bg-[#e58840] text-[#400b0b] hover:bg-[#e58840]/90 shadow-sm hover:shadow-md active:scale-[0.98]'
+                : 'bg-gray-200 text-[#400b0b]/40 cursor-not-allowed'
             }`}
           >
             {tipoSelecionado === 'local' ? 'Escolher Comanda' : 'Continuar para Checkout'}
