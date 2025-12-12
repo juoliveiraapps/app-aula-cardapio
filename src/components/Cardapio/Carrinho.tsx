@@ -179,8 +179,7 @@ export const Carrinho: React.FC<CarrinhoProps> = ({
             {/* BOTÃO SEMPRE ATIVO E COM TEXTO "CONTINUAR" */}
             <button
               onClick={onIniciarCheckout}
-              className="w-full bg-primary-900 text-white py-2.5 md:py-3 rounded-lg md:rounded-xl font-bold hover:bg-primary-800 transition-all duration-300 text-xs md:text-sm"
-            >
+              className="w-full bg-[#e58840] text-[#400b0b] py-2.5 md:py-3 rounded-lg md:rounded-xl font-bold text-xs md:text-sm hover:bg-[#e58840]/90 active:scale-[0.98] transition-all duration-300 shadow-sm hover:shadow-md"
               Continuar
             </button>
           </div>
