@@ -50,7 +50,7 @@ export const Carrinho: React.FC<CarrinhoProps> = ({
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl md:rounded-2xl max-w-md w-full max-h-[90vh] md:max-h-[80vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="bg-primary-900 text-white p-3 md:p-4 text-center relative">
+        <div className="bg-[#e58840] text-[#400b0b] p-3 md:p-4 text-center relative shadow-md">
           <h2 className="text-lg md:text-xl font-bold">Seu Carrinho</h2>
           <p className="text-secondary-200 text-xs md:text-sm">{totalItens} {totalItens === 1 ? 'item' : 'itens'}</p>
           <button
