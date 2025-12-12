@@ -41,12 +41,12 @@ export const ModalComandas: React.FC<ModalComandasProps> = ({
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[70] p-4">
       <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-       <div className="bg-gradient-to-r from-[#e58840] to-[#e58840]/90 text-[#400b0b] p-4 text-center relative shadow-md">
+        <div className="bg-[#e58840] text-[#400b0b] p-4 text-center relative shadow-md">
           <h2 className="text-xl font-bold">Sua Comanda</h2>
-          <p className="text-secondary-200 text-sm">Para consumo no local</p>
+          <p className="text-[#400b0b]/80 text-sm">Para consumo no local</p>
           <button
             onClick={handleVoltar}
-            className="absolute top-3 right-4 w-8 h-8 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
+            className="absolute top-3 right-4 w-8 h-8 bg-white/30 text-[#400b0b] rounded-full flex items-center justify-center hover:bg-white/40 transition-colors"
           >
             ✕
           </button>
@@ -56,7 +56,7 @@ export const ModalComandas: React.FC<ModalComandasProps> = ({
         <div className="flex-1 overflow-y-auto p-4">
           {/* Nome do Cliente */}
           <div className="mb-6">
-            <label className="block text-sm font-medium text-primary-900 mb-2">
+            <label className="block text-sm font-medium text-[#400b0b] mb-2">
               Seu nome *
             </label>
             <input
@@ -64,7 +64,7 @@ export const ModalComandas: React.FC<ModalComandasProps> = ({
               value={nomeCliente}
               onChange={(e) => setNomeCliente(e.target.value)}
               placeholder="Digite seu nome"
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#e58840] focus:border-transparent"
             />
           </div>
 
@@ -72,7 +72,7 @@ export const ModalComandas: React.FC<ModalComandasProps> = ({
           <div className="mb-6">
             <button
               onClick={() => setShowManualInput(!showManualInput)}
-              className="w-full p-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-primary-400 hover:bg-primary-50 transition-colors text-primary-700 flex items-center justify-center"
+              className="w-full p-3 border-2 border-dashed border-[#e58840]/50 text-[#400b0b] rounded-lg hover:border-[#e58840] hover:bg-[#e58840]/10 transition-colors flex items-center justify-center"
             >
               {showManualInput ? (
                 <>
@@ -91,7 +91,7 @@ export const ModalComandas: React.FC<ModalComandasProps> = ({
           {showManualInput ? (
             /* Entrada manual */
             <div className="mb-6">
-              <label className="block text-sm font-medium text-primary-900 mb-2 text-center">
+              <label className="block text-sm font-medium text-[#400b0b] mb-2 text-center">
                 Digite o número da sua comanda
               </label>
               <div className="flex justify-center">
@@ -100,17 +100,17 @@ export const ModalComandas: React.FC<ModalComandasProps> = ({
                   value={manualNumber}
                   onChange={(e) => setManualNumber(e.target.value.replace(/\D/g, '').slice(0, 3))}
                   placeholder="Ex: 001"
-                  className="w-32 p-4 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent text-center text-3xl font-bold"
+                  className="w-32 p-4 border-2 border-[#e58840] rounded-xl focus:ring-2 focus:ring-[#e58840] focus:border-transparent text-center text-3xl font-bold text-[#400b0b]"
                 />
               </div>
-              <p className="text-xs text-primary-500 mt-2 text-center">
+              <p className="text-xs text-[#400b0b]/70 mt-2 text-center">
                 Digite o número da comanda que recebeu
               </p>
             </div>
           ) : (
             /* Grade de comandas */
             <div className="mb-6">
-              <h3 className="font-bold text-primary-900 mb-3 text-center">
+              <h3 className="font-bold text-[#400b0b] mb-3 text-center">
                 Selecione sua comanda/mesa
               </h3>
               <div className="grid grid-cols-4 gap-3">
@@ -122,8 +122,8 @@ export const ModalComandas: React.FC<ModalComandasProps> = ({
                       relative p-4 rounded-xl border-2 transition-all duration-300 
                       flex flex-col items-center justify-center
                       ${comandaSelecionada === numero
-                        ? 'bg-primary-900 border-primary-900 text-white transform scale-105'
-                        : 'bg-white border-gray-200 hover:border-primary-400 hover:bg-primary-50'
+                        ? 'bg-[#e58840] border-[#e58840] text-[#400b0b] transform scale-105 shadow-md'
+                        : 'bg-white border-gray-200 hover:border-[#e58840] hover:bg-[#e58840]/10 text-[#400b0b]'
                       }
                     `}
                   >
@@ -134,8 +134,8 @@ export const ModalComandas: React.FC<ModalComandasProps> = ({
                     <span className={`
                       text-[10px] font-medium mt-1 px-2 py-0.5 rounded-full
                       ${comandaSelecionada === numero
-                        ? 'bg-primary-700 text-white'
-                        : 'bg-green-100 text-green-700'
+                        ? 'bg-[#400b0b] text-[#e58840]'
+                        : 'bg-[#e58840]/20 text-[#400b0b]'
                       }
                     `}>
                       Disponível
@@ -143,8 +143,8 @@ export const ModalComandas: React.FC<ModalComandasProps> = ({
 
                     {/* Checkmark quando selecionado */}
                     {comandaSelecionada === numero && (
-                      <div className="absolute -top-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="absolute -top-1 -right-1 w-6 h-6 bg-[#400b0b] rounded-full flex items-center justify-center">
+                        <svg className="w-3 h-3 text-[#e58840]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                         </svg>
                       </div>
@@ -156,14 +156,14 @@ export const ModalComandas: React.FC<ModalComandasProps> = ({
           )}
 
           {/* Instruções */}
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+          <div className="bg-[#e58840]/10 border border-[#e58840]/30 rounded-xl p-4">
             <div className="flex items-start">
-              <div className="bg-blue-100 p-2 rounded-lg mr-3">
-                <span className="text-blue-600 text-lg">💡</span>
+              <div className="bg-[#e58840] p-2 rounded-lg mr-3">
+                <span className="text-[#400b0b] text-lg">💡</span>
               </div>
               <div>
-                <h4 className="font-medium text-blue-900 text-sm mb-2">Como funciona?</h4>
-                <ul className="text-xs text-blue-700 space-y-1">
+                <h4 className="font-medium text-[#400b0b] text-sm mb-2">Como funciona?</h4>
+                <ul className="text-xs text-[#400b0b]/80 space-y-1">
                   <li className="flex items-start">
                     <span className="mr-2">•</span>
                     <span>Selecione o número da sua comanda/mesa</span>
@@ -187,15 +187,15 @@ export const ModalComandas: React.FC<ModalComandasProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-gray-200">
+        <div className="p-4 border-t border-[#400b0b]/10">
           {showManualInput ? (
             <button
               onClick={handleManualConfirm}
               disabled={!manualNumber || !nomeCliente.trim()}
               className={`w-full py-3 rounded-xl font-bold transition-all duration-300 ${
                 manualNumber && nomeCliente.trim()
-                  ? 'bg-primary-900 text-white hover:bg-primary-800'
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  ? 'bg-[#e58840] text-[#400b0b] hover:bg-[#e58840]/90 shadow-sm hover:shadow-md active:scale-[0.98]'
+                  : 'bg-gray-200 text-[#400b0b]/40 cursor-not-allowed'
               }`}
             >
               {manualNumber 
@@ -206,10 +206,10 @@ export const ModalComandas: React.FC<ModalComandasProps> = ({
             <div>
               {comandaSelecionada && nomeCliente && (
                 <div className="text-center mb-3">
-                  <p className="text-sm font-medium text-primary-900">
-                    Comanda selecionada: <span className="font-bold text-lg">#{comandaSelecionada}</span>
+                  <p className="text-sm font-medium text-[#400b0b]">
+                    Comanda selecionada: <span className="font-bold text-lg text-[#e58840]">#{comandaSelecionada}</span>
                   </p>
-                  <p className="text-sm text-primary-600">Cliente: {nomeCliente}</p>
+                  <p className="text-sm text-[#400b0b]/70">Cliente: {nomeCliente}</p>
                 </div>
               )}
               <button
@@ -217,8 +217,8 @@ export const ModalComandas: React.FC<ModalComandasProps> = ({
                 disabled={!comandaSelecionada || !nomeCliente.trim()}
                 className={`w-full py-3 rounded-xl font-bold transition-all duration-300 ${
                   comandaSelecionada && nomeCliente.trim()
-                    ? 'bg-primary-900 text-white hover:bg-primary-800'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    ? 'bg-[#e58840] text-[#400b0b] hover:bg-[#e58840]/90 shadow-sm hover:shadow-md active:scale-[0.98]'
+                    : 'bg-gray-200 text-[#400b0b]/40 cursor-not-allowed'
                 }`}
               >
                 {comandaSelecionada 
