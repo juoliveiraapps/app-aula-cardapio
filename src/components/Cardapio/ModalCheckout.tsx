@@ -595,27 +595,27 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
                 </div>
               )}
 
-            {/* Forma de Pagamento */}
+           {/* Forma de Pagamento */}
 <div className="mb-6">
   <h3 className="font-bold text-[#400b0b] mb-3">Forma de Pagamento</h3>
   <div className="space-y-2">
     {['dinheiro', 'cartao', 'pix'].map((forma) => (
       <label 
         key={forma} 
-        className={`flex items-center p-3 border rounded-lg cursor-pointer transition-all duration-300 ${
+        className={`flex items-center p-3 rounded-lg cursor-pointer transition-all duration-300 ${
           formaPagamento === forma
-            ? 'border-[#e58840] bg-[#e58840]/10 shadow-sm'
-            : 'border-[#400b0b]/20 hover:border-[#400b0b]/30 hover:bg-[#e58840]/5'
+            ? 'bg-[#e58840] text-[#400b0b] border-2 border-[#e58840] shadow-md transform scale-[1.02]'
+            : 'bg-white text-[#400b0b] border-2 border-[#400b0b]/20 hover:border-[#e58840]/50 hover:bg-[#e58840]/5'
         } ${enviando ? 'opacity-50 cursor-not-allowed' : ''}`}
       >
-        {/* Radio button personalizado */}
-        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mr-3 transition-all duration-300 ${
+        {/* Radio button personalizado com checkmark visível */}
+        <div className={`relative w-5 h-5 rounded-full border-2 flex items-center justify-center mr-3 transition-all duration-300 ${
           formaPagamento === forma
-            ? 'border-[#e58840] bg-[#e58840]'
-            : 'border-[#400b0b]/30 bg-white'
+            ? 'border-[#400b0b] bg-[#400b0b]'
+            : 'border-[#400b0b]/40 bg-white'
         }`}>
           {formaPagamento === forma && (
-            <div className="w-2 h-2 rounded-full bg-[#400b0b]"></div>
+            <div className="w-2 h-2 rounded-full bg-[#e58840]"></div>
           )}
         </div>
         
@@ -627,12 +627,14 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
           checked={formaPagamento === forma}
           onChange={(e) => setFormaPagamento(e.target.value)}
           disabled={enviando}
-          className="hidden" // Esconde o input nativo
+          className="hidden"
         />
         
         {/* Texto da opção */}
         <div className="flex-1">
-          <span className="font-medium text-[#400b0b]">
+          <span className={`font-medium ${
+            formaPagamento === forma ? 'font-bold' : ''
+          }`}>
             {forma === 'dinheiro' ? 'Dinheiro' : 
              forma === 'cartao' ? 'Cartão na entrega/retirada' : 
              'PIX'}
@@ -640,26 +642,30 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
           
           {/* Descrição adicional para PIX */}
           {forma === 'pix' && (
-            <p className="text-xs text-[#400b0b]/60 mt-1">
+            <p className={`text-xs mt-1 ${
+              formaPagamento === forma ? 'text-[#400b0b]/90' : 'text-[#400b0b]/60'
+            }`}>
               QR Code será mostrado na confirmação
             </p>
           )}
         </div>
         
-        {/* Ícone para cada opção */}
-        <div className={`ml-2 p-1.5 rounded-full ${
-          formaPagamento === forma ? 'bg-[#e58840]/20' : 'bg-[#400b0b]/5'
+        {/* Ícone para cada opção - mais visível quando selecionado */}
+        <div className={`ml-2 p-2 rounded-full ${
+          formaPagamento === forma 
+            ? 'bg-[#400b0b] text-[#e58840]' 
+            : 'bg-[#400b0b]/10 text-[#400b0b]'
         }`}>
           {forma === 'dinheiro' ? (
-            <svg className="w-4 h-4 text-[#400b0b]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           ) : forma === 'cartao' ? (
-            <svg className="w-4 h-4 text-[#400b0b]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
             </svg>
           ) : (
-            <svg className="w-4 h-4 text-[#400b0b]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
             </svg>
           )}
