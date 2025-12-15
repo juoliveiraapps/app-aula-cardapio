@@ -186,19 +186,20 @@ const ProductList: React.FC<ProductListProps> = ({
 
       {/* Lista de Produtos */}
       <div className="space-y-3">
-       // No ProductList.tsx, procure esta linha (~linha 187):
-{filteredProdutos.map((produto) => {
+   {filteredProdutos.map((produto, index) => {
   const categoria = categorias.find(c => c.id === produto.categoria_id);
+  // Use index como fallback se id for vazio
+  const uniqueKey = produto.id || `produto-${index}-${Date.now()}`;
   
   return (
     <div
-      key={produto.id} // ⬅️ VERIFIQUE ESTA LINHA - deve ser único
-      className={`bg-gray-800/50 rounded-xl border p-4 hover:border-[#e58840]/30 transition-all duration-300 ${
-        !produto.disponivel 
-          ? 'opacity-70 border-gray-700/50' 
-          : 'border-gray-700/50 hover:shadow-lg hover:shadow-[#e58840]/5'
-      }`}
-    >
+      key={uniqueKey} // ⬅️ CORRIGIDO
+              className={`bg-gray-800/50 rounded-xl border p-4 hover:border-[#e58840]/30 transition-all duration-300 ${
+                !produto.disponivel 
+                  ? 'opacity-70 border-gray-700/50' 
+                  : 'border-gray-700/50 hover:shadow-lg hover:shadow-[#e58840]/5'
+              }`}
+            >
               <div className="flex flex-col md:flex-row md:items-start gap-4">
                 {/* Imagem */}
                 <div className="md:w-32 flex-shrink-0">
