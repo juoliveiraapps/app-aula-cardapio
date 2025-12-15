@@ -1,5 +1,6 @@
+// components/admin/ProductForm.tsx - versão corrigida
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Trash2, Upload } from 'lucide-react';
+import { X, Plus, Trash2 } from 'lucide-react';
 import ImageUploader from './ImageUploader';
 
 interface Categoria {
@@ -43,6 +44,11 @@ const ProductForm: React.FC<ProductFormProps> = ({
   onClose,
   loading = false
 }) => {
+  console.log('🔵 ProductForm renderizado');
+  console.log('🔵 showForm?', true);
+  console.log('🔵 initialData:', initialData);
+  console.log('🔵 categorias:', categorias.length);
+
   const [formData, setFormData] = useState({
     nome: '',
     descricao: '',
@@ -76,7 +82,9 @@ const ProductForm: React.FC<ProductFormProps> = ({
 
   // Inicializar formData
   useEffect(() => {
+    console.log('🔄 useEffect inicializando formData');
     if (initialData) {
+      console.log('📋 Usando initialData:', initialData);
       setFormData({
         nome: initialData.nome || '',
         descricao: initialData.descricao || '',
@@ -87,8 +95,21 @@ const ProductForm: React.FC<ProductFormProps> = ({
         posicao: initialData.posicao || 1,
         opcoes: initialData.opcoes || []
       });
+    } else {
+      console.log('📋 Novo produto (sem initialData)');
+      // Garantir valores padrão para novo produto
+      setFormData({
+        nome: '',
+        descricao: '',
+        preco: 0,
+        imagem_url: '',
+        categoria_id: categorias.length > 0 ? categorias[0].id : '',
+        disponivel: true,
+        posicao: 1,
+        opcoes: []
+      });
     }
-  }, [initialData]);
+  }, [initialData, categorias]);
 
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
@@ -106,34 +127,46 @@ const ProductForm: React.FC<ProductFormProps> = ({
     }
     
     setFormErrors(errors);
+    console.log('✅ Validação:', Object.keys(errors).length === 0 ? 'Passou' : 'Falhou', errors);
     return Object.keys(errors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('📤 Submetendo formulário:', formData);
     
     if (!validateForm()) {
+      console.log('❌ Validação falhou');
       return;
     }
     
+    console.log('✅ Validação passou, enviando...');
     const success = await onSubmit(formData);
-    if (success && !initialData?.id) {
-      // Reset form only on success for new products
-      setFormData({
-        nome: '',
-        descricao: '',
-        preco: 0,
-        imagem_url: '',
-        categoria_id: '',
-        disponivel: true,
-        posicao: 1,
-        opcoes: []
-      });
+    
+    if (success) {
+      console.log('🎉 Sucesso ao salvar produto');
+      if (!initialData?.id) {
+        // Reset form only on success for new products
+        setFormData({
+          nome: '',
+          descricao: '',
+          preco: 0,
+          imagem_url: '',
+          categoria_id: categorias.length > 0 ? categorias[0].id : '',
+          disponivel: true,
+          posicao: 1,
+          opcoes: []
+        });
+      }
+    } else {
+      console.log('❌ Falha ao salvar produto');
     }
   };
 
   // Funções para gerenciar opções
   const handleAddOption = () => {
+    console.log('➕ Adicionando opção:', optionFormData);
+    
     if (!optionFormData.nome.trim()) {
       alert('Nome da opção é obrigatório');
       return;
@@ -148,6 +181,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
       ? formData.opcoes.map(opt => opt.id === editingOption.id ? newOption : opt)
       : [...formData.opcoes, newOption];
 
+    console.log('📊 Opções atualizadas:', updatedOptions);
     setFormData({ ...formData, opcoes: updatedOptions });
     setShowOptionForm(false);
     setEditingOption(null);
@@ -155,6 +189,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
   };
 
   const handleEditOption = (option: ProdutoOption) => {
+    console.log('✏️ Editando opção:', option);
     setEditingOption(option);
     setOptionFormData({
       nome: option.nome,
@@ -170,6 +205,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
 
   const handleDeleteOption = (id: string) => {
     if (window.confirm('Tem certeza que deseja excluir esta opção?')) {
+      console.log('🗑️ Deletando opção ID:', id);
       setFormData({
         ...formData,
         opcoes: formData.opcoes.filter(opt => opt.id !== id)
@@ -193,6 +229,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
   const handleAddSubOption = () => {
     const subOption = prompt('Digite o nome da sub-opção (ex: "Pequeno"):');
     if (subOption && subOption.trim()) {
+      console.log('➕ Adicionando sub-opção:', subOption);
       setOptionFormData({
         ...optionFormData,
         opcoes: [...optionFormData.opcoes, subOption.trim()]
@@ -207,6 +244,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
 
   // Função para upload de imagem
   const handleImageUpload = (imageUrl: string) => {
+    console.log('📸 Imagem enviada:', imageUrl);
     setFormData({ ...formData, imagem_url: imageUrl });
   };
 
@@ -217,6 +255,31 @@ const ProductForm: React.FC<ProductFormProps> = ({
       currency: 'BRL'
     }).format(price);
   };
+
+  // Se não há categorias, mostrar mensagem
+  if (categorias.length === 0) {
+    return (
+      <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
+        <div className="bg-gray-800 rounded-2xl border border-gray-700/50 p-8 max-w-md">
+          <div className="text-center">
+            <div className="text-4xl mb-4">⚠️</div>
+            <h3 className="text-xl font-bold text-white mb-2">
+              Nenhuma categoria disponível
+            </h3>
+            <p className="text-gray-400 mb-6">
+              Você precisa criar pelo menos uma categoria antes de adicionar produtos.
+            </p>
+            <button
+              onClick={onClose}
+              className="px-5 py-2.5 bg-gradient-to-r from-[#e58840] to-[#e58840]/90 text-[#400b0b] font-bold rounded-lg"
+            >
+              Fechar
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
@@ -276,7 +339,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
                   type="number"
                   step="0.01"
                   min="0"
-                  value={formData.preco}
+                  value={formData.preco || ''}
                   onChange={(e) => setFormData({ ...formData, preco: parseFloat(e.target.value) || 0 })}
                   className={`w-full pl-10 pr-4 py-3 bg-gray-900/50 border rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-[#e58840] focus:border-transparent ${
                     formErrors.preco ? 'border-red-500' : 'border-gray-700'
@@ -307,7 +370,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
                 className={`w-full px-4 py-3 bg-gray-900/50 border rounded-lg text-white focus:ring-2 focus:ring-[#e58840] focus:border-transparent ${
                   formErrors.categoria_id ? 'border-red-500' : 'border-gray-700'
                 }`}
-                disabled={loading || categorias.length === 0}
+                disabled={loading}
               >
                 <option value="">Selecione uma categoria</option>
                 {categorias.map((categoria) => (
@@ -318,11 +381,6 @@ const ProductForm: React.FC<ProductFormProps> = ({
               </select>
               {formErrors.categoria_id && (
                 <p className="mt-1 text-sm text-red-400">{formErrors.categoria_id}</p>
-              )}
-              {categorias.length === 0 && (
-                <p className="mt-1 text-sm text-yellow-400">
-                  Nenhuma categoria disponível. Crie categorias primeiro.
-                </p>
               )}
             </div>
 
@@ -369,11 +427,11 @@ const ProductForm: React.FC<ProductFormProps> = ({
             <label className="block text-sm font-medium text-gray-300 mb-2">
               Imagem do Produto
             </label>
-           <ImageUploader
-  currentImage={formData.imagem_url}
-  onImageUpload={handleImageUpload}
-  disabled={loading}
-/>
+            <ImageUploader
+              currentImage={formData.imagem_url}
+              onImageUpload={handleImageUpload}
+              disabled={loading}
+            />
           </div>
 
           {/* Opções do Produto */}
@@ -534,7 +592,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
                       type="number"
                       step="0.01"
                       min="0"
-                      value={optionFormData.preco}
+                      value={optionFormData.preco || ''}
                       onChange={(e) => setOptionFormData({ ...optionFormData, preco: parseFloat(e.target.value) || 0 })}
                       className="w-full px-4 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-white"
                     />
