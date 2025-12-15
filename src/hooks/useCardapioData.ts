@@ -51,10 +51,10 @@ export const useCardapioData = () => {
 
         // Buscar dados em paralelo - URLs CORRETAS: /api?action=
         const [configRes, categoriasRes, produtosRes, bairrosRes] = await Promise.all([
-          fetch(`${API_BASE}/api?action=getConfig`),
-          fetch(`${API_BASE}/api?action=getCategorias`),
-          fetch(`${API_BASE}/api?action=getProdutos`),
-          fetch(`${API_BASE}/api?action=getBairros`)
+        fetch(`/api?action=getConfig`),
+        fetch(`/api?action=getCategorias`),
+        fetch(`/api?action=getProdutos`),
+        fetch(`/api?action=getBairros`)
         ]);
 
         // Verificar se todas as respostas são OK
