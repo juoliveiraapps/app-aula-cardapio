@@ -12,42 +12,19 @@ const AdminCardapio = () => {
   const [editingProduct, setEditingProduct] = useState<Produto | null>(null);
   const [processing, setProcessing] = useState(false);
 
-  console.log('🟡 AdminCardapio renderizado');
-  console.log('🟡 showForm:', showForm);
-  console.log('🟡 categorias:', categorias.length);
-  console.log('🟡 loading:', loading);
-
-  // Adicione este useEffect para monitorar mudanças
-  React.useEffect(() => {
-    console.log('🟢 showForm atualizado para:', showForm);
-  }, [showForm]);
-
-  const handleNewProduct = () => {
-    console.log('🟣 Botão "Novo Produto" clicado');
-    console.log('🟣 categorias disponíveis:', categorias.length);
-    console.log('🟣 processing:', processing);
-    
-    if (categorias.length === 0) {
-      console.log('🔴 Não pode abrir - sem categorias');
-      alert('Crie categorias primeiro!');
-      return;
-    }
-    
-    if (processing) {
-      console.log('🔴 Não pode abrir - processing');
-      return;
-    }
-    
-    console.log('🟢 Definindo editingProduct como null');
-    console.log('🟢 Definindo showForm como true');
-    setEditingProduct(null);
-    setShowForm(true);
-    
-    // Verifique imediatamente após
-    setTimeout(() => {
-      console.log('🟢 showForm após timeout (deve ser true):', showForm);
-    }, 0);
-  };
+  // Converter produtos para o formato do ProductList
+  const produtos = produtosData.map(prod => ({
+    id: prod.id || '',
+    nome: prod.nome || '',
+    descricao: prod.descricao || '',
+    preco: prod.preco || 0,
+    imagem_url: prod.imagem_url || '',
+    categoria_id: prod.categoria_id || '',
+    categoria_nome: categorias.find(c => c.id === prod.categoria_id)?.nome || '',
+    disponivel: prod.disponivel !== false,
+    posicao: prod.posicao || 1,
+    opcoes: prod.opcoes || []
+  })); //
 
  const handleSaveProduct = async (productData: any): Promise<boolean> => {
   try {
