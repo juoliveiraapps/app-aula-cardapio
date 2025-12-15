@@ -13,7 +13,7 @@ export interface Categoria {
   descricao?: string;
   posicao?: number;
   visivel?: boolean;
-  icone?: string;
+  icone_svg?: string;
 }
 
 export interface OpcaoProduto {
