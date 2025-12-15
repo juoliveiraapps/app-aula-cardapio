@@ -1,45 +1,155 @@
 import React, { useState } from 'react';
-import { Plus, Search, Filter, Download } from 'lucide-react';
+import { Plus, RefreshCw } from 'lucide-react';
+import { useCardapioData } from '../hooks/useCardapioData';
+import { Produto } from '../types';
 import ProductForm from '../components/admin/ProductForm';
 import ProductList from '../components/admin/ProductList';
 
 const AdminCardapio = () => {
+  const { produtos: produtosData, categorias, loading, error } = useCardapioData();
   const [showForm, setShowForm] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [editingProduct, setEditingProduct] = useState<Produto | null>(null);
+  const [processing, setProcessing] = useState(false);
+
+  // Converter produtos para o formato do ProductList
+  const produtos = produtosData.map(prod => ({
+    id: prod.id || '',
+    nome: prod.nome || '',
+    descricao: prod.descricao || '',
+    preco: prod.preco || 0,
+    imagem_url: prod.imagem_url || '',
+    categoria_id: prod.categoria_id || '',
+    categoria_nome: categorias.find(c => c.id === prod.categoria_id)?.nome || '',
+    disponivel: prod.disponivel !== false,
+    posicao: prod.posicao || 1,
+    opcoes: prod.opcoes || []
+  }));
+
+  // Função para salvar produto
+  const handleSaveProduct = async (productData: any): Promise<boolean> => {
+    try {
+      setProcessing(true);
+      
+      console.log('📝 Salvando produto:', productData);
+      
+      const API_KEY = "cce4d5770afe09d2c790dcca4272e1190462a6a574270b040c835889115c6914";
+      const API_URL = `${window.location.origin}/api`;
+      
+      const response = await fetch(`${API_URL}?action=saveProduct&key=${API_KEY}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(productData)
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        console.log('✅ Produto salvo com sucesso');
+        alert(data.message || 'Produto salvo com sucesso!');
+        
+        // Recarregar a página para atualizar os dados
+        window.location.reload();
+        return true;
+      } else {
+        throw new Error(data.error || 'Erro ao salvar produto');
+      }
+    } catch (err: any) {
+      console.error('❌ Erro ao salvar produto:', err);
+      alert(`Erro: ${err.message || 'Erro desconhecido'}`);
+      return false;
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  // Função para deletar produto
+  const handleDeleteProduct = async (id: string): Promise<void> => {
+    if (!window.confirm('Tem certeza que deseja excluir este produto?')) {
+      return;
+    }
+
+    try {
+      setProcessing(true);
+      
+      console.log('🗑️ Deletando produto ID:', id);
+      
+      // AJUSTE: Você precisa criar uma ação no Apps Script para deletar produtos
+      const API_KEY = "cce4d5770afe09d2c790dcca4272e1190462a6a574270b040c835889115c6914";
+      const API_URL = `${window.location.origin}/api`;
+      
+      const response = await fetch(`${API_URL}?action=deleteProduct&key=${API_KEY}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({ id })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        console.log('✅ Produto deletado com sucesso');
+        alert(data.message || 'Produto deletado com sucesso!');
+        
+        // Recarregar a página para atualizar os dados
+        window.location.reload();
+      } else {
+        throw new Error(data.error || 'Erro ao deletar produto');
+      }
+    } catch (err: any) {
+      console.error('❌ Erro ao deletar produto:', err);
+      alert(`Erro: ${err.message || 'Erro desconhecido'}`);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleNewProduct = () => {
+    setEditingProduct(null);
+    setShowForm(true);
+  };
+
+  const handleEditProduct = (product: any) => {
+    setEditingProduct(product);
+    setShowForm(true);
+  };
+
+  const refreshProducts = () => {
+    window.location.reload();
+  };
 
   return (
     <div className="space-y-6">
-      {/* Cabeçalho com Ações */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex-1 max-w-md">
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-4 w-4 text-gray-400" />
-            </div>
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Buscar produtos..."
-              className="block w-full pl-10 pr-3 py-2.5 border border-gray-600 rounded-lg bg-gray-900/50 text-white placeholder-gray-400 focus:ring-2 focus:ring-[#e58840] focus:border-transparent"
-            />
-          </div>
+      {/* Cabeçalho */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-bold text-white">Produtos do Cardápio</h3>
+          <p className="text-gray-400">
+            {produtos.length} produtos cadastrados
+            {error && ` • Erro: ${error}`}
+          </p>
         </div>
-
+        
         <div className="flex items-center space-x-2">
-          <button className="flex items-center space-x-2 px-4 py-2.5 border border-gray-600 rounded-lg text-gray-300 hover:text-white hover:bg-gray-700/50 transition-colors">
-            <Filter className="w-4 h-4" />
-            <span>Filtrar</span>
-          </button>
-          
-          <button className="flex items-center space-x-2 px-4 py-2.5 border border-gray-600 rounded-lg text-gray-300 hover:text-white hover:bg-gray-700/50 transition-colors">
-            <Download className="w-4 h-4" />
-            <span>Exportar</span>
+          <button
+            onClick={refreshProducts}
+            disabled={loading || processing}
+            className="flex items-center space-x-2 px-3 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors disabled:opacity-50"
+            title="Atualizar lista"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">Atualizar</span>
           </button>
           
           <button
-            onClick={() => setShowForm(true)}
-            className="flex items-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-[#e58840] to-[#e58840]/90 hover:from-[#e58840]/90 hover:to-[#e58840] text-[#400b0b] font-bold rounded-lg transition-all duration-300"
+            onClick={handleNewProduct}
+            disabled={processing || categorias.length === 0}
+            className="flex items-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-[#e58840] to-[#e58840]/90 hover:from-[#e58840]/90 hover:to-[#e58840] text-[#400b0b] font-bold rounded-lg transition-all duration-300 disabled:opacity-50"
+            title={categorias.length === 0 ? 'Crie categorias primeiro' : 'Adicionar novo produto'}
           >
             <Plus className="w-4 h-4" />
             <span>Novo Produto</span>
@@ -47,66 +157,62 @@ const AdminCardapio = () => {
         </div>
       </div>
 
-      {/* Conteúdo */}
-      {showForm ? (
-        <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-bold text-white">Cadastrar Novo Produto</h3>
+      {/* Mensagem de erro */}
+      {error && (
+        <div className="bg-red-900/30 border border-red-800/50 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <span className="text-red-400">⚠️</span>
+              <p className="text-red-400">{error}</p>
+            </div>
             <button
-              onClick={() => setShowForm(false)}
-              className="text-gray-400 hover:text-white"
+              onClick={refreshProducts}
+              className="text-red-300 hover:text-white text-sm"
+              disabled={loading}
             >
-              Cancelar
+              Tentar novamente
             </button>
           </div>
-          <ProductForm onSuccess={() => setShowForm(false)} />
         </div>
-      ) : (
-        <>
-          {/* Estatísticas */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-gradient-to-br from-gray-800 to-gray-900 p-4 rounded-xl border border-gray-700/50">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-400">Total de Produtos</p>
-                  <p className="text-2xl font-bold text-white">24</p>
-                </div>
-                <div className="w-10 h-10 bg-blue-900/30 rounded-lg flex items-center justify-center">
-                  <span className="text-blue-400 font-bold">📦</span>
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-gradient-to-br from-gray-800 to-gray-900 p-4 rounded-xl border border-gray-700/50">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-400">Disponíveis</p>
-                  <p className="text-2xl font-bold text-white">22</p>
-                </div>
-                <div className="w-10 h-10 bg-green-900/30 rounded-lg flex items-center justify-center">
-                  <span className="text-green-400 font-bold">✅</span>
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-gradient-to-br from-gray-800 to-gray-900 p-4 rounded-xl border border-gray-700/50">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-400">Indisponíveis</p>
-                  <p className="text-2xl font-bold text-white">2</p>
-                </div>
-                <div className="w-10 h-10 bg-red-900/30 rounded-lg flex items-center justify-center">
-                  <span className="text-red-400 font-bold">⏸️</span>
-                </div>
-              </div>
-            </div>
-          </div>
+      )}
 
-          {/* Lista de Produtos */}
-          <div className="mt-6">
-            <ProductList />
+      {/* Aviso se não houver categorias */}
+      {categorias.length === 0 && (
+        <div className="bg-yellow-900/30 border border-yellow-800/50 rounded-lg p-4">
+          <div className="flex items-center space-x-3">
+            <span className="text-yellow-400 text-xl">⚠️</span>
+            <div>
+              <p className="text-yellow-400 font-medium">Crie categorias primeiro</p>
+              <p className="text-yellow-300/80 text-sm">
+                Você precisa criar pelo menos uma categoria antes de adicionar produtos.
+              </p>
+            </div>
           </div>
-        </>
+        </div>
+      )}
+
+      {/* Lista de Produtos */}
+      <ProductList
+        produtos={produtos}
+        categorias={categorias}
+        onEdit={handleEditProduct}
+        onDelete={handleDeleteProduct}
+        loading={loading && produtos.length === 0}
+        emptyMessage="Nenhum produto cadastrado. Comece criando seu primeiro produto!"
+      />
+
+      {/* Modal do Formulário */}
+      {showForm && (
+        <ProductForm
+          initialData={editingProduct || undefined}
+          categorias={categorias}
+          onSubmit={handleSaveProduct}
+          onClose={() => {
+            setShowForm(false);
+            setEditingProduct(null);
+          }}
+          loading={processing}
+        />
       )}
     </div>
   );
