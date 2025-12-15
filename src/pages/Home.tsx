@@ -103,13 +103,7 @@ export function Home() {
                 </div>
               </div>
               
-              <Link
-                to="/cardapio"
-                className="bg-gradient-to-r from-[#e58840] to-[#e58840]/90 hover:from-[#e58840]/90 hover:to-[#e58840] text-[#400b0b] px-6 py-2.5 rounded-full font-bold transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 flex items-center gap-2"
-              >
-                <Coffee className="w-4 h-4" />
-                Ver Cardápio
-              </Link>
+             
             </div>
           </header>
 
