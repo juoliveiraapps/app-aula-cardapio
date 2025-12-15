@@ -5,7 +5,7 @@ import Cardapio from './pages/Cardapio';
 import Checkout from './pages/Checkout';
 import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
-import PainelCozinha from './pages/PainelCozinha';
+import AdminPainelCozinha from './pages/AdminPainelCozinha';
 import { useAdminAuth } from './hooks/useAdminAuth';
 
 // Componente wrapper para rotas protegidas
