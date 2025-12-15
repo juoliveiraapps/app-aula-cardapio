@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Grid, Edit2, Trash2, RefreshCw } from 'lucide-react';
-import useCategoriesAPI from '../hooks/useCategoriesAPI';
+import React, { useState } from 'react';
+import { Plus, Edit2, Trash2, RefreshCw } from 'lucide-react';
+import { useCardapioData } from '../hooks/useCardapioData'; // Use o hook existente
+import { Categoria } from '../types'; // Importe o tipo Categoria
 
-interface Category {
-  id: string;
+interface CategoryFormData {
+  id?: string;
   nome: string;
   descricao: string;
   posicao: number;
@@ -12,20 +13,11 @@ interface Category {
 }
 
 const AdminCategorias = () => {
-  const {
-    categories,
-    loading,
-    error,
-    lastUpdate,
-    fetchCategories,
-    saveCategory,
-    deleteCategory
-  } = useCategoriesAPI();
-
-  const [showForm, setShowForm] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const { categorias, loading, error } = useCardapioData();
   const [processing, setProcessing] = useState(false);
-  const [formData, setFormData] = useState<Partial<Category>>({
+  const [showForm, setShowForm] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<Categoria | null>(null);
+  const [formData, setFormData] = useState<CategoryFormData>({
     nome: '',
     descricao: '',
     posicao: 1,
@@ -33,19 +25,119 @@ const AdminCategorias = () => {
     icone: '📦'
   });
 
-  // Inicializar formData quando editar
-  useEffect(() => {
+  // Converter categorias do formato antigo para o novo formato
+  const categories: CategoryFormData[] = categorias.map(cat => ({
+    id: cat.id,
+    nome: cat.nome,
+    descricao: cat.descricao || '',
+    posicao: cat.posicao || 1,
+    visivel: cat.visivel !== false,
+    icone: cat.icone || '📦'
+  }));
+
+  // Atualizar formData quando editar
+  React.useEffect(() => {
     if (editingCategory) {
       setFormData({
         id: editingCategory.id,
         nome: editingCategory.nome,
-        descricao: editingCategory.descricao,
-        posicao: editingCategory.posicao,
-        visivel: editingCategory.visivel,
-        icone: editingCategory.icone
+        descricao: editingCategory.descricao || '',
+        posicao: editingCategory.posicao || 1,
+        visivel: editingCategory.visivel !== false,
+        icone: editingCategory.icone || '📦'
       });
     }
   }, [editingCategory]);
+
+  // Função para salvar categoria
+  const saveCategory = async (categoryData: CategoryFormData): Promise<boolean> => {
+    try {
+      setProcessing(true);
+      
+      console.log('📝 Salvando categoria:', categoryData);
+      
+      // AJUSTE: Use sua chave API real aqui
+      const API_KEY = "cce4d5770afe09d2c790dcca4272e1190462a6a574270b040c835889115c6914";
+      const API_URL = `${window.location.origin}/api`;
+      
+      const response = await fetch(`${API_URL}?action=salvarCategoria&key=${API_KEY}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(categoryData)
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        console.log('✅ Categoria salva com sucesso');
+        alert(data.message || 'Categoria salva com sucesso!');
+        
+        // Recarregar a página para atualizar os dados
+        window.location.reload();
+        
+        return true;
+      } else {
+        throw new Error(data.error || 'Erro ao salvar categoria');
+      }
+    } catch (err: any) {
+      console.error('❌ Erro ao salvar categoria:', err);
+      alert(`Erro: ${err.message || 'Erro desconhecido'}`);
+      return false;
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  // Função para deletar categoria
+  const deleteCategory = async (id: string): Promise<boolean> => {
+    if (!id) return false;
+    
+    if (!window.confirm('Tem certeza que deseja excluir esta categoria?')) {
+      return false;
+    }
+
+    try {
+      setProcessing(true);
+      
+      console.log('🗑️ Deletando categoria ID:', id);
+      
+      // AJUSTE: Use sua chave API real aqui
+      const API_KEY = "cce4d5770afe09d2c790dcca4272e1190462a6a574270b040c835889115c6914";
+      const API_URL = `${window.location.origin}/api`;
+      
+      const response = await fetch(`${API_URL}?action=deletarCategoria&key=${API_KEY}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({ id })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        console.log('✅ Categoria deletada com sucesso');
+        alert(data.message || 'Categoria deletada com sucesso!');
+        
+        // Recarregar a página para atualizar os dados
+        window.location.reload();
+        
+        return true;
+      } else {
+        throw new Error(data.error || 'Erro ao deletar categoria');
+      }
+    } catch (err: any) {
+      console.error('❌ Erro ao deletar categoria:', err);
+      alert(`Erro: ${err.message || 'Erro desconhecido'}`);
+      return false;
+    } finally {
+      setProcessing(false);
+    }
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,34 +147,22 @@ const AdminCategorias = () => {
       return;
     }
 
-    setProcessing(true);
-    
-    try {
-      const success = await saveCategory(formData);
-      if (success) {
-        setShowForm(false);
-        setEditingCategory(null);
-        setFormData({
-          nome: '',
-          descricao: '',
-          posicao: categories.length + 1,
-          visivel: true,
-          icone: '📦'
-        });
-      }
-    } finally {
-      setProcessing(false);
+    const success = await saveCategory(formData);
+    if (success) {
+      setShowForm(false);
+      setEditingCategory(null);
+      setFormData({
+        nome: '',
+        descricao: '',
+        posicao: categories.length + 1,
+        visivel: true,
+        icone: '📦'
+      });
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Tem certeza que deseja excluir esta categoria?')) {
-      return;
-    }
-
-    setProcessing(true);
     await deleteCategory(id);
-    setProcessing(false);
   };
 
   const handleNewCategory = () => {
@@ -97,9 +177,14 @@ const AdminCategorias = () => {
     setShowForm(true);
   };
 
-  const handleEditCategory = (category: Category) => {
-    setEditingCategory(category);
+  const handleEditCategory = (category: CategoryFormData) => {
+    setEditingCategory(category as Categoria);
     setShowForm(true);
+  };
+
+  // Função para atualizar categorias
+  const refreshCategories = () => {
+    window.location.reload();
   };
 
   // Tela de loading
@@ -129,14 +214,14 @@ const AdminCategorias = () => {
           <h3 className="text-lg font-bold text-white">Categorias do Cardápio</h3>
           <p className="text-gray-400">
             {categories.length} categorias cadastradas
-            {lastUpdate && ` • Atualizado: ${lastUpdate}`}
+            {error && ` • Erro: ${error}`}
           </p>
         </div>
         
         <div className="flex items-center space-x-2">
           <button
-            onClick={fetchCategories}
-            disabled={loading}
+            onClick={refreshCategories}
+            disabled={loading || processing}
             className="flex items-center space-x-2 px-3 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors disabled:opacity-50"
             title="Atualizar"
           >
@@ -145,7 +230,8 @@ const AdminCategorias = () => {
           
           <button
             onClick={handleNewCategory}
-            className="flex items-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-[#e58840] to-[#e58840]/90 hover:from-[#e58840]/90 hover:to-[#e58840] text-[#400b0b] font-bold rounded-lg transition-all duration-300"
+            disabled={processing}
+            className="flex items-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-[#e58840] to-[#e58840]/90 hover:from-[#e58840]/90 hover:to-[#e58840] text-[#400b0b] font-bold rounded-lg transition-all duration-300 disabled:opacity-50"
           >
             <Plus className="w-4 h-4" />
             <span>Nova Categoria</span>
@@ -162,8 +248,9 @@ const AdminCategorias = () => {
               <p className="text-red-400">{error}</p>
             </div>
             <button
-              onClick={fetchCategories}
+              onClick={refreshCategories}
               className="text-red-300 hover:text-white text-sm"
+              disabled={loading}
             >
               Tentar novamente
             </button>
@@ -197,7 +284,7 @@ const AdminCategorias = () => {
                   Nome da Categoria *
                 </label>
                 <input
-                  value={formData.nome || ''}
+                  value={formData.nome}
                   onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
                   required
                   className="w-full px-4 py-2.5 bg-gray-900/50 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-[#e58840] focus:border-transparent"
@@ -211,7 +298,7 @@ const AdminCategorias = () => {
                   Ícone
                 </label>
                 <select
-                  value={formData.icone || '📦'}
+                  value={formData.icone}
                   onChange={(e) => setFormData({ ...formData, icone: e.target.value })}
                   className="w-full px-4 py-2.5 bg-gray-900/50 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-[#e58840] focus:border-transparent"
                   disabled={processing}
@@ -236,7 +323,7 @@ const AdminCategorias = () => {
                 Descrição
               </label>
               <textarea
-                value={formData.descricao || ''}
+                value={formData.descricao}
                 onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
                 rows={2}
                 className="w-full px-4 py-2.5 bg-gray-900/50 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-[#e58840] focus:border-transparent"
@@ -254,8 +341,8 @@ const AdminCategorias = () => {
                   type="number"
                   min="1"
                   max="100"
-                  value={formData.posicao || categories.length + 1}
-                  onChange={(e) => setFormData({ ...formData, posicao: parseInt(e.target.value) })}
+                  value={formData.posicao}
+                  onChange={(e) => setFormData({ ...formData, posicao: parseInt(e.target.value) || 1 })}
                   required
                   className="w-full px-4 py-2.5 bg-gray-900/50 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-[#e58840] focus:border-transparent"
                   disabled={processing}
@@ -266,7 +353,7 @@ const AdminCategorias = () => {
                 <label className="flex items-center space-x-2 cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={formData.visivel ?? true}
+                    checked={formData.visivel}
                     onChange={(e) => setFormData({ ...formData, visivel: e.target.checked })}
                     className="w-4 h-4 text-[#e58840] bg-gray-900 border-gray-700 rounded focus:ring-[#e58840] focus:ring-2"
                     disabled={processing}
@@ -342,7 +429,7 @@ const AdminCategorias = () => {
                     <Edit2 className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={() => handleDelete(category.id)}
+                    onClick={() => handleDelete(category.id!)}
                     disabled={processing}
                     className="p-1.5 text-gray-400 hover:text-red-400 transition-colors disabled:opacity-50"
                     title="Excluir"
@@ -366,7 +453,8 @@ const AdminCategorias = () => {
             </p>
             <button
               onClick={handleNewCategory}
-              className="inline-flex items-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-[#e58840] to-[#e58840]/90 hover:from-[#e58840]/90 hover:to-[#e58840] text-[#400b0b] font-bold rounded-lg transition-all duration-300"
+              disabled={processing}
+              className="inline-flex items-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-[#e58840] to-[#e58840]/90 hover:from-[#e58840]/90 hover:to-[#e58840] text-[#400b0b] font-bold rounded-lg transition-all duration-300 disabled:opacity-50"
             >
               <Plus className="w-4 h-4" />
               <span>Criar Primeira Categoria</span>
