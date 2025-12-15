@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, RefreshCw } from 'lucide-react';
 import { useCardapioData } from '../hooks/useCardapioData';
 import { Produto } from '../types';
@@ -12,74 +12,103 @@ const AdminCardapio = () => {
   const [editingProduct, setEditingProduct] = useState<Produto | null>(null);
   const [processing, setProcessing] = useState(false);
 
-  // Converter produtos para o formato do ProductList
-  const produtos = produtosData.map(prod => ({
-    id: prod.id || '',
-    nome: prod.nome || '',
-    descricao: prod.descricao || '',
-    preco: prod.preco || 0,
-    imagem_url: prod.imagem_url || '',
-    categoria_id: prod.categoria_id || '',
-    categoria_nome: categorias.find(c => c.id === prod.categoria_id)?.nome || '',
-    disponivel: prod.disponivel !== false,
-    posicao: prod.posicao || 1,
-    opcoes: prod.opcoes || []
-  })); //
+  console.log('🟢 AdminCardapio renderizado');
+  console.log('🟢 showForm:', showForm);
+  console.log('🟢 produtosData:', produtosData.length);
+  console.log('🟢 categorias:', categorias.length);
 
- const handleSaveProduct = async (productData: any): Promise<boolean> => {
-  try {
-    setProcessing(true);
-    console.log('📝 Salvando produto:', productData);
-    
-    const data = await saveProductToSheet(productData);
-    
-    console.log('✅ Produto salvo com sucesso:', data);
-    alert(data.message || 'Produto salvo com sucesso!');
-    
-    // Recarregar a página para atualizar os dados
-    window.location.reload();
-    return true;
-    
-  } catch (err: any) {
-    console.error('❌ Erro ao salvar produto:', err);
-    alert(`Erro: ${err.message || 'Erro desconhecido'}`);
-    return false;
-  } finally {
-    setProcessing(false);
-  }
-};
+  // Monitorar mudanças no showForm
+  useEffect(() => {
+    console.log('🔄 showForm mudou para:', showForm);
+  }, [showForm]);
 
-const handleDeleteProduct = async (id: string): Promise<void> => {
-  if (!window.confirm('Tem certeza que deseja excluir este produto?')) {
-    return;
-  }
+  // Converter produtos para o formato do ProductList com keys únicas
+  const produtos = produtosData.map((prod, index) => {
+    const categoria = categorias.find(c => c.id === prod.categoria_id);
+    return {
+      id: prod.id || `prod-${index}-${Date.now()}`,
+      nome: prod.nome || '',
+      descricao: prod.descricao || '',
+      preco: prod.preco || 0,
+      imagem_url: prod.imagem_url || '',
+      categoria_id: prod.categoria_id || '',
+      categoria_nome: categoria?.nome || '',
+      disponivel: prod.disponivel !== false,
+      posicao: prod.posicao || 1,
+      opcoes: prod.opcoes || []
+    };
+  });
 
-  try {
-    setProcessing(true);
-    console.log('🗑️ Deletando produto ID:', id);
-    
-    const data = await deleteProductFromSheet(id);
-    
-    console.log('✅ Produto deletado com sucesso:', data);
-    alert(data.message || 'Produto deletado com sucesso!');
-    
-    // Recarregar a página para atualizar os dados
-    window.location.reload();
-    
-  } catch (err: any) {
-    console.error('❌ Erro ao deletar produto:', err);
-    alert(`Erro: ${err.message || 'Erro desconhecido'}`);
-  } finally {
-    setProcessing(false);
-  }
-};
+  const handleSaveProduct = async (productData: any): Promise<boolean> => {
+    try {
+      setProcessing(true);
+      console.log('📝 Salvando produto:', productData);
+      
+      const data = await saveProductToSheet(productData);
+      
+      console.log('✅ Produto salvo com sucesso:', data);
+      alert(data.message || 'Produto salvo com sucesso!');
+      
+      // Recarregar a página para atualizar os dados
+      window.location.reload();
+      return true;
+      
+    } catch (err: any) {
+      console.error('❌ Erro ao salvar produto:', err);
+      alert(`Erro: ${err.message || 'Erro desconhecido'}`);
+      return false;
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleDeleteProduct = async (id: string): Promise<void> => {
+    if (!window.confirm('Tem certeza que deseja excluir este produto?')) {
+      return;
+    }
+
+    try {
+      setProcessing(true);
+      console.log('🗑️ Deletando produto ID:', id);
+      
+      const data = await deleteProductFromSheet(id);
+      
+      console.log('✅ Produto deletado com sucesso:', data);
+      alert(data.message || 'Produto deletado com sucesso!');
+      
+      // Recarregar a página para atualizar os dados
+      window.location.reload();
+      
+    } catch (err: any) {
+      console.error('❌ Erro ao deletar produto:', err);
+      alert(`Erro: ${err.message || 'Erro desconhecido'}`);
+    } finally {
+      setProcessing(false);
+    }
+  };
 
   const handleNewProduct = () => {
+    console.log('🎯 Botão Novo Produto clicado');
+    console.log('🎯 categorias disponíveis:', categorias.length);
+    
+    if (categorias.length === 0) {
+      alert('Crie categorias primeiro!');
+      return;
+    }
+    
+    console.log('🎯 Definindo editingProduct como null');
+    console.log('🎯 Definindo showForm como true');
     setEditingProduct(null);
     setShowForm(true);
+    
+    // Debug: verificar após um tick
+    setTimeout(() => {
+      console.log('🎯 Após timeout, showForm deve ser true');
+    }, 0);
   };
 
   const handleEditProduct = (product: any) => {
+    console.log('✏️ Editando produto:', product);
     setEditingProduct(product);
     setShowForm(true);
   };
@@ -88,8 +117,71 @@ const handleDeleteProduct = async (id: string): Promise<void> => {
     window.location.reload();
   };
 
+  const handleCloseForm = () => {
+    console.log('✋ Fechando ProductForm');
+    setShowForm(false);
+    setEditingProduct(null);
+  };
+
+  // Teste: Adicionar um botão de debug
+  const openTestModal = () => {
+    console.log('🧪 Abrindo modal de teste');
+    // Criar um modal simples diretamente no DOM para testar
+    const modal = document.createElement('div');
+    modal.innerHTML = `
+      <div style="
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.7);
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      ">
+        <div style="
+          background: #1f2937;
+          padding: 2rem;
+          border-radius: 1rem;
+          color: white;
+          max-width: 400px;
+        ">
+          <h3 style="font-size: 1.25rem; font-weight: bold; margin-bottom: 1rem;">
+            Modal de Teste JS
+          </h3>
+          <p>Se você vê isso, o problema está no React.</p>
+          <button onclick="this.parentElement.parentElement.remove()" 
+            style="
+              margin-top: 1rem;
+              background: #e58840;
+              color: #400b0b;
+              font-weight: bold;
+              padding: 0.5rem 1rem;
+              border-radius: 0.5rem;
+              width: 100%;
+            ">
+            Fechar
+          </button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
+      {/* Botão de debug (remova depois) */}
+      <div className="absolute top-0 right-0">
+        <button
+          onClick={openTestModal}
+          className="px-3 py-1 bg-purple-600 text-white text-sm rounded-lg"
+        >
+          Teste Modal JS
+        </button>
+      </div>
+
       {/* Cabeçalho */}
       <div className="flex items-center justify-between">
         <div>
@@ -167,16 +259,61 @@ const handleDeleteProduct = async (id: string): Promise<void> => {
         emptyMessage="Nenhum produto cadastrado. Comece criando seu primeiro produto!"
       />
 
-      {/* Modal do Formulário */}
+      {/* Modal do Formulário - COM DEBUG VISUAL */}
       {showForm && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          backgroundColor: 'rgba(255, 0, 0, 0.3)',
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
+          <div style={{
+            backgroundColor: '#1f2937',
+            borderRadius: '1rem',
+            border: '4px solid yellow',
+            padding: '2rem',
+            maxWidth: '500px',
+            width: '90%',
+            color: 'white',
+          }}>
+            <h3 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '1rem' }}>
+              DEBUG: Modal está sendo renderizado!
+            </h3>
+            <p style={{ marginBottom: '1rem' }}>
+              showForm = {showForm.toString()}<br />
+              categorias = {categorias.length}<br />
+              editingProduct = {editingProduct ? 'Sim' : 'Não'}
+            </p>
+            <button
+              onClick={handleCloseForm}
+              style={{
+                backgroundColor: '#e58840',
+                color: '#400b0b',
+                fontWeight: 'bold',
+                padding: '0.75rem 1.5rem',
+                borderRadius: '0.5rem',
+                width: '100%',
+              }}
+            >
+              Fechar Debug Modal
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal real (comentado temporariamente) */}
+      {false && showForm && (
         <ProductForm
           initialData={editingProduct || undefined}
           categorias={categorias}
           onSubmit={handleSaveProduct}
-          onClose={() => {
-            setShowForm(false);
-            setEditingProduct(null);
-          }}
+          onClose={handleCloseForm}
           loading={processing}
         />
       )}
