@@ -1,8 +1,29 @@
 import React, { useState } from 'react';
 import { useAdminAuth } from '../hooks/useAdminAuth';
 import { Package, Users, ShoppingCart, Settings, LogOut, Plus } from 'lucide-react';
-import ProductForm from '../components/admin/ProductForm';
-import ProductList from '../components/admin/ProductList';
+import ProductForm from '../components/admin/ProductForm'; // ← Remove este import
+import ProductList from '../components/admin/ProductList'; // ← Remove este import
+
+// Primeiro, crie os componentes básicos temporários
+const TempProductForm = () => (
+  <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
+    <h3 className="text-xl font-bold text-white mb-4">Formulário de Produto</h3>
+    <p className="text-gray-400 mb-6">Componente em desenvolvimento...</p>
+    <button
+      onClick={() => alert('Formulário será implementado em breve')}
+      className="bg-[#e58840] text-[#400b0b] px-4 py-2 rounded-lg font-medium"
+    >
+      Testar
+    </button>
+  </div>
+);
+
+const TempProductList = () => (
+  <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
+    <h3 className="text-xl font-bold text-white mb-4">Lista de Produtos</h3>
+    <p className="text-gray-400">Carregando produtos do Google Sheets...</p>
+  </div>
+);
 
 const AdminDashboard = () => {
   const { logout } = useAdminAuth();
@@ -103,7 +124,7 @@ const AdminDashboard = () => {
                 </button>
               </div>
 
-              <ProductList />
+              <TempProductList />
             </div>
           )}
 
@@ -122,12 +143,32 @@ const AdminDashboard = () => {
                 <h2 className="text-2xl font-bold text-white mb-2">Cadastrar Novo Produto</h2>
                 <p className="text-gray-400 mb-6">Preencha os dados do produto</p>
                 
-                <ProductForm onSuccess={() => setActiveTab('products')} />
+                <TempProductForm />
               </div>
             </div>
           )}
 
-          {/* Adicione outras abas conforme necessário */}
+          {/* Outras abas */}
+          {activeTab === 'orders' && (
+            <div className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700/50">
+              <h2 className="text-2xl font-bold text-white mb-2">Pedidos</h2>
+              <p className="text-gray-400">Em desenvolvimento...</p>
+            </div>
+          )}
+
+          {activeTab === 'customers' && (
+            <div className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700/50">
+              <h2 className="text-2xl font-bold text-white mb-2">Clientes</h2>
+              <p className="text-gray-400">Em desenvolvimento...</p>
+            </div>
+          )}
+
+          {activeTab === 'settings' && (
+            <div className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700/50">
+              <h2 className="text-2xl font-bold text-white mb-2">Configurações</h2>
+              <p className="text-gray-400">Em desenvolvimento...</p>
+            </div>
+          )}
         </main>
       </div>
     </div>
