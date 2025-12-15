@@ -3,23 +3,37 @@ import { Upload, X, Image as ImageIcon } from 'lucide-react';
 import { uploadImageToCloudinary } from '../../services/adminService';
 
 interface ImageUploaderProps {
-  onImageUploaded: (url: string) => void;
+  onImageUpload: (url: string) => void;
   currentImage?: string;
+  disabled?: boolean;
 }
 
-const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUploaded, currentImage }) => {
+const ImageUploader: React.FC<ImageUploaderProps> = ({ 
+  onImageUpload, 
+  currentImage = '',
+  disabled = false 
+}) => {
   const [preview, setPreview] = useState<string>(currentImage || '');
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Atualizar preview quando currentImage mudar
+  React.useEffect(() => {
+    if (currentImage) {
+      setPreview(currentImage);
+    }
+  }, [currentImage]);
+
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (disabled) return;
+
     const file = event.target.files?.[0];
     if (!file) return;
 
     // Validações
     if (!file.type.startsWith('image/')) {
-      setError('Por favor, selecione um arquivo de imagem');
+      setError('Por favor, selecione um arquivo de imagem (JPG, PNG, GIF)');
       return;
     }
 
@@ -41,10 +55,11 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUploaded, currentI
 
     try {
       const imageUrl = await uploadImageToCloudinary(file);
-      onImageUploaded(imageUrl);
+      onImageUpload(imageUrl);
       setError('');
-    } catch (err) {
-      setError('Erro ao fazer upload da imagem. Tente novamente.');
+    } catch (err: any) {
+      console.error('Upload error:', err);
+      setError(err.message || 'Erro ao fazer upload da imagem. Tente novamente.');
       setPreview('');
     } finally {
       setUploading(false);
@@ -52,24 +67,27 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUploaded, currentI
   };
 
   const removeImage = () => {
+    if (disabled) return;
+    
     setPreview('');
-    onImageUploaded('');
+    onImageUpload('');
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
 
   const triggerFileInput = () => {
+    if (disabled) return;
     fileInputRef.current?.click();
   };
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <label className="block text-sm font-medium text-gray-200">
+        <label className="block text-sm font-medium text-gray-300">
           Imagem do Produto
         </label>
-        <span className="text-xs text-gray-400">JPG, PNG • Máx. 5MB</span>
+        <span className="text-xs text-gray-500">JPG, PNG • Máx. 5MB</span>
       </div>
 
       <input
@@ -78,32 +96,46 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUploaded, currentI
         onChange={handleFileSelect}
         accept="image/*"
         className="hidden"
+        disabled={disabled}
       />
 
       {preview ? (
         <div className="relative">
-          <div className="bg-gray-800 rounded-xl p-4 border-2 border-dashed border-gray-700">
+          <div className={`bg-gray-800 rounded-xl p-4 border-2 ${
+            disabled ? 'border-gray-700/30 opacity-50' : 'border-gray-700 hover:border-[#e58840]/50'
+          } transition-all duration-300`}>
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center space-x-2">
-                <div className="w-10 h-10 bg-green-900/30 rounded-lg flex items-center justify-center">
-                  <ImageIcon className="w-5 h-5 text-green-400" />
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                  disabled ? 'bg-gray-800' : 'bg-green-900/30'
+                }`}>
+                  <ImageIcon className={`w-5 h-5 ${
+                    disabled ? 'text-gray-500' : 'text-green-400'
+                  }`} />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-white">Imagem carregada</p>
-                  <p className="text-xs text-gray-400">Clique para alterar</p>
+                  <p className={`text-sm font-medium ${
+                    disabled ? 'text-gray-500' : 'text-white'
+                  }`}>Imagem carregada</p>
+                  <p className="text-xs text-gray-500">Clique para alterar</p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={removeImage}
-                className="text-gray-400 hover:text-red-400 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              {!disabled && (
+                <button
+                  type="button"
+                  onClick={removeImage}
+                  className="text-gray-400 hover:text-red-400 transition-colors p-1"
+                  disabled={uploading}
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              )}
             </div>
 
             <div className="mt-3">
-              <div className="relative aspect-square max-w-xs mx-auto rounded-lg overflow-hidden bg-gray-900">
+              <div className={`relative aspect-square max-w-xs mx-auto rounded-lg overflow-hidden ${
+                disabled ? 'cursor-not-allowed' : 'cursor-pointer'
+              }`}>
                 <img
                   src={preview}
                   alt="Preview"
@@ -118,6 +150,11 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUploaded, currentI
                     </div>
                   </div>
                 )}
+                {disabled && (
+                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                    <p className="text-sm text-gray-300">Desabilitado</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -125,37 +162,49 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUploaded, currentI
       ) : (
         <div
           onClick={triggerFileInput}
-          className={`bg-gray-800 rounded-xl p-8 border-2 border-dashed ${
-            error ? 'border-red-500/50' : 'border-gray-700 hover:border-[#e58840]/50'
-          } transition-all duration-300 cursor-pointer text-center`}
+          className={`bg-gray-800 rounded-xl p-8 border-2 border-dashed transition-all duration-300 text-center ${
+            disabled 
+              ? 'border-gray-700/30 opacity-50 cursor-not-allowed' 
+              : `cursor-pointer hover:border-[#e58840]/50 ${
+                  error ? 'border-red-500/50' : 'border-gray-700'
+                }`
+          }`}
         >
           <div className="flex flex-col items-center justify-center space-y-4">
-            <div className="w-16 h-16 bg-gray-900 rounded-full flex items-center justify-center">
+            <div className={`w-16 h-16 rounded-full flex items-center justify-center ${
+              disabled ? 'bg-gray-900/50' : 'bg-gray-900'
+            }`}>
               {uploading ? (
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#e58840]"></div>
               ) : (
-                <Upload className="w-8 h-8 text-gray-400" />
+                <Upload className={`w-8 h-8 ${
+                  disabled ? 'text-gray-600' : 'text-gray-400'
+                }`} />
               )}
             </div>
             <div>
-              <p className="text-white font-medium">
+              <p className={`font-medium ${
+                disabled ? 'text-gray-500' : 'text-white'
+              }`}>
                 {uploading ? 'Enviando imagem...' : 'Clique para fazer upload'}
               </p>
-              <p className="text-sm text-gray-400 mt-1">
-                Arraste ou clique para selecionar
+              <p className={`text-sm mt-1 ${
+                disabled ? 'text-gray-600' : 'text-gray-400'
+              }`}>
+                Arraste ou clique para selecionar uma imagem
               </p>
             </div>
           </div>
         </div>
       )}
 
-      {error && (
+      {error && !disabled && (
         <div className="bg-red-900/30 border border-red-800/50 rounded-lg p-3">
           <p className="text-red-400 text-sm">{error}</p>
         </div>
       )}
 
-      {uploading && (
+      {uploading && !disabled && (
         <div className="bg-blue-900/30 border border-blue-800/50 rounded-lg p-3">
           <p className="text-blue-400 text-sm flex items-center">
             <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-400 mr-2"></div>
