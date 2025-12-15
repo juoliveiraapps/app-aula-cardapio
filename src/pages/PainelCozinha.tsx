@@ -9,6 +9,7 @@ const PainelCozinha: React.FC = () => {
   const [ultimaAtualizacao, setUltimaAtualizacao] = useState<string>('');
   const [notificacaoAtiva, setNotificacaoAtiva] = useState(false);
   const [ultimoPedidoId, setUltimoPedidoId] = useState<string>('');
+  const [pedidoProcessando, setPedidoProcessando] = useState<string | null>(null); // NOVO: estado para pedido em processamento
   const audioRef = useRef<HTMLAudioElement | null>(null);
   
   // URL do som MP3
@@ -164,6 +165,9 @@ const PainelCozinha: React.FC = () => {
     try {
       console.log('📝 Atualizando status:', pedidoId, '->', novoStatus);
       
+      // Marcar que este pedido está sendo processado
+      setPedidoProcessando(pedidoId);
+      
       // Parar notificação quando mudar status
       pararNotificacao();
       
@@ -194,6 +198,9 @@ const PainelCozinha: React.FC = () => {
     } catch (error) {
       console.error('❌ Erro na requisição:', error);
       alert('Erro de conexão');
+    } finally {
+      // Remover o indicador de processamento
+      setPedidoProcessando(null);
     }
   };
   
@@ -511,13 +518,14 @@ const PainelCozinha: React.FC = () => {
             const pedidoId = pedido.pedido_id || pedido.id || `PED${index}`;
             const itensProcessados = processarItens(pedido.itens);
             const totalItens = itensProcessados.reduce((total, item) => total + (parseInt(item.quantidade) || 1), 0);
+            const estaProcessando = pedidoProcessando === pedidoId; // NOVO: verifica se está processando
             
             return (
               <div
                 key={pedidoId}
                 className={`bg-gray-800 rounded-xl border-l-4 ${tipoCor} p-4 space-y-4 ${
                   pedido.status === 'Recebido' ? 'ring-2 ring-yellow-500/50 animate-pulse' : ''
-                }`}
+                } ${estaProcessando ? 'ring-2 ring-blue-500' : ''}`} // NOVO: destaque quando processando
               >
                 {/* CABEÇALHO DO PEDIDO */}
                 <div className="flex justify-between items-start">
@@ -592,28 +600,67 @@ const PainelCozinha: React.FC = () => {
                     <div className="flex space-x-2">
                       {pedido.status === 'Recebido' && (
                         <button
-                          onClick={() => atualizarStatus(pedidoId, 'Preparando')}
-                          className="bg-orange-600 hover:bg-orange-700 px-3 py-2 rounded-lg text-sm transition-colors"
+                          onClick={() => !estaProcessando && atualizarStatus(pedidoId, 'Preparando')}
+                          disabled={estaProcessando}
+                          className={`px-3 py-2 rounded-lg text-sm transition-colors flex items-center justify-center min-w-[90px] ${
+                            estaProcessando
+                              ? 'bg-orange-700 cursor-not-allowed'
+                              : 'bg-orange-600 hover:bg-orange-700'
+                          }`}
                         >
-                          Preparar
+                          {estaProcessando ? (
+                            <>
+                              <svg className="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              Processando...
+                            </>
+                          ) : 'Preparar'}
                         </button>
                       )}
                       
                       {pedido.status === 'Preparando' && (
                         <button
-                          onClick={() => atualizarStatus(pedidoId, 'Pronto')}
-                          className="bg-teal-600 hover:bg-teal-700 px-3 py-2 rounded-lg text-sm transition-colors"
+                          onClick={() => !estaProcessando && atualizarStatus(pedidoId, 'Pronto')}
+                          disabled={estaProcessando}
+                          className={`px-3 py-2 rounded-lg text-sm transition-colors flex items-center justify-center min-w-[90px] ${
+                            estaProcessando
+                              ? 'bg-teal-700 cursor-not-allowed'
+                              : 'bg-teal-600 hover:bg-teal-700'
+                          }`}
                         >
-                          Pronto
+                          {estaProcessando ? (
+                            <>
+                              <svg className="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              Processando...
+                            </>
+                          ) : 'Pronto'}
                         </button>
                       )}
                       
                       {pedido.status === 'Pronto' && (
                         <button
-                          onClick={() => atualizarStatus(pedidoId, 'Entregue')}
-                          className="bg-gray-600 hover:bg-gray-700 px-3 py-2 rounded-lg text-sm transition-colors"
+                          onClick={() => !estaProcessando && atualizarStatus(pedidoId, 'Entregue')}
+                          disabled={estaProcessando}
+                          className={`px-3 py-2 rounded-lg text-sm transition-colors flex items-center justify-center min-w-[90px] ${
+                            estaProcessando
+                              ? 'bg-gray-700 cursor-not-allowed'
+                              : 'bg-gray-600 hover:bg-gray-700'
+                          }`}
                         >
-                          Entregue
+                          {estaProcessando ? (
+                            <>
+                              <svg className="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              Processando...
+                            </>
+                          ) : 'Entregue'}
                         </button>
                       )}
                     </div>
