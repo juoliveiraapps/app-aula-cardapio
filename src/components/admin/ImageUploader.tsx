@@ -1,6 +1,5 @@
 import React, { useState, useRef } from 'react';
 import { Upload, X, Image as ImageIcon } from 'lucide-react';
-import { uploadImageToCloudinary } from '../../services/adminService';
 
 interface ImageUploaderProps {
   onImageUpload: (url: string) => void;
@@ -49,14 +48,21 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
     };
     reader.readAsDataURL(file);
 
-    // Upload para Cloudinary
+    // Em produção, aqui você faria o upload para Cloudinary
+    // Por enquanto, vamos simular um upload
     setUploading(true);
     setError('');
 
     try {
-      const imageUrl = await uploadImageToCloudinary(file);
-      onImageUpload(imageUrl);
+      // Simulação de upload (substitua por upload real)
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // URL fictícia - em produção, use a URL real do Cloudinary
+      const mockImageUrl = `https://via.placeholder.com/400x400/1e3a8a/ffffff?text=${encodeURIComponent(file.name.split('.')[0])}`;
+      
+      onImageUpload(mockImageUrl);
       setError('');
+      
     } catch (err: any) {
       console.error('Upload error:', err);
       setError(err.message || 'Erro ao fazer upload da imagem. Tente novamente.');
@@ -208,7 +214,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
         <div className="bg-blue-900/30 border border-blue-800/50 rounded-lg p-3">
           <p className="text-blue-400 text-sm flex items-center">
             <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-400 mr-2"></div>
-            Enviando imagem para Cloudinary...
+            Enviando imagem...
           </p>
         </div>
       )}
