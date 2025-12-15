@@ -189,7 +189,7 @@ const ProductList: React.FC<ProductListProps> = ({
    {filteredProdutos.map((produto, index) => {
   const categoria = categorias.find(c => c.id === produto.categoria_id);
   // Use index como fallback se id for vazio
-  const uniqueKey = produto.id || `produto-${index}-${Date.now()}`;
+    const uniqueKey = produto.id || `produto-${index}-${Date.now()}`;
   
   return (
     <div
