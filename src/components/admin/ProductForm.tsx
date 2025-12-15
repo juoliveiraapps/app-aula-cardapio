@@ -369,11 +369,11 @@ const ProductForm: React.FC<ProductFormProps> = ({
             <label className="block text-sm font-medium text-gray-300 mb-2">
               Imagem do Produto
             </label>
-            <ImageUploader
-              currentImage={formData.imagem_url}
-              onImageUpload={handleImageUpload}
-              disabled={loading}
-            />
+           <ImageUploader
+  currentImage={formData.imagem_url}
+  onImageUpload={handleImageUpload}
+  disabled={loading}
+/>
           </div>
 
           {/* Opções do Produto */}
