@@ -12,42 +12,42 @@ const AdminCardapio = () => {
   const [editingProduct, setEditingProduct] = useState<Produto | null>(null);
   const [processing, setProcessing] = useState(false);
 
-  // Converter produtos para o formato do ProductList
-  const produtos = produtosData.map(prod => ({
-    id: prod.id || '',
-    nome: prod.nome || '',
-    descricao: prod.descricao || '',
-    preco: prod.preco || 0,
-    imagem_url: prod.imagem_url || '',
-    categoria_id: prod.categoria_id || '',
-    categoria_nome: categorias.find(c => c.id === prod.categoria_id)?.nome || '',
-    disponivel: prod.disponivel !== false,
-    posicao: prod.posicao || 1,
-    opcoes: prod.opcoes || []
-  }));
+  console.log('🟡 AdminCardapio renderizado');
+  console.log('🟡 showForm:', showForm);
+  console.log('🟡 categorias:', categorias.length);
+  console.log('🟡 loading:', loading);
 
- const handleSaveProduct = async (productData: any): Promise<boolean> => {
-  try {
-    setProcessing(true);
-    console.log('📝 Salvando produto:', productData);
+  // Adicione este useEffect para monitorar mudanças
+  React.useEffect(() => {
+    console.log('🟢 showForm atualizado para:', showForm);
+  }, [showForm]);
+
+  const handleNewProduct = () => {
+    console.log('🟣 Botão "Novo Produto" clicado');
+    console.log('🟣 categorias disponíveis:', categorias.length);
+    console.log('🟣 processing:', processing);
     
-    const data = await saveProductToSheet(productData);
+    if (categorias.length === 0) {
+      console.log('🔴 Não pode abrir - sem categorias');
+      alert('Crie categorias primeiro!');
+      return;
+    }
     
-    console.log('✅ Produto salvo com sucesso:', data);
-    alert(data.message || 'Produto salvo com sucesso!');
+    if (processing) {
+      console.log('🔴 Não pode abrir - processing');
+      return;
+    }
     
-    // Recarregar a página para atualizar os dados
-    window.location.reload();
-    return true;
+    console.log('🟢 Definindo editingProduct como null');
+    console.log('🟢 Definindo showForm como true');
+    setEditingProduct(null);
+    setShowForm(true);
     
-  } catch (err: any) {
-    console.error('❌ Erro ao salvar produto:', err);
-    alert(`Erro: ${err.message || 'Erro desconhecido'}`);
-    return false;
-  } finally {
-    setProcessing(false);
-  }
-};
+    // Verifique imediatamente após
+    setTimeout(() => {
+      console.log('🟢 showForm após timeout (deve ser true):', showForm);
+    }, 0);
+  };
 
 const handleDeleteProduct = async (id: string): Promise<void> => {
   if (!window.confirm('Tem certeza que deseja excluir este produto?')) {
