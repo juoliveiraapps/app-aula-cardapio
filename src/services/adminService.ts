@@ -1,16 +1,46 @@
-// src/services/adminService.ts
+// src/services/adminService.ts - Versão final
 const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
 const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+const API_KEY = import.meta.env.VITE_API_KEY;
 
-// URL base para API - usa proxy no dev, direto no production
-const getApiBase = () => {
-  if (import.meta.env.PROD) {
-    return import.meta.env.VITE_GOOGLE_SCRIPT_URL || 'https://script.google.com';
+// Detecta se está em desenvolvimento ou produção
+const isDev = import.meta.env.DEV;
+const isProd = import.meta.env.PROD;
+
+// Função para construir URLs da API
+const buildApiUrl = (action: string, params?: Record<string, string>) => {
+  if (isDev) {
+    // No dev, usa o proxy do Vite (relativo)
+    const url = `/api?action=${encodeURIComponent(action)}`;
+    const queryParams = new URLSearchParams();
+    
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        queryParams.append(key, value);
+      });
+    }
+    
+    // A chave é adicionada automaticamente pelo proxy
+    return queryParams.toString() ? `${url}&${queryParams}` : url;
   }
-  return ''; // No dev, usa o proxy relativo
+  
+  // Em produção, usa URL completa
+  const baseUrl = import.meta.env.VITE_GOOGLE_SCRIPT_URL;
+  const url = new URL(baseUrl);
+  
+  url.searchParams.append('action', action);
+  url.searchParams.append('key', API_KEY);
+  
+  if (params) {
+    Object.entries(params).forEach(([key, value]) => {
+      url.searchParams.append(key, value);
+    });
+  }
+  
+  return url.toString();
 };
 
-// Serviço para upload de imagens (usando proxy no dev)
+// Upload para Cloudinary (otimizada)
 export const uploadImageToCloudinary = async (file: File): Promise<string> => {
   try {
     const formData = new FormData();
@@ -19,16 +49,13 @@ export const uploadImageToCloudinary = async (file: File): Promise<string> => {
     formData.append('folder', 'cardapio/produtos');
     formData.append('cloud_name', CLOUDINARY_CLOUD_NAME);
 
-    // No desenvolvimento, podemos usar o proxy se configurado
-    // Em produção, vai direto para Cloudinary
-    const url = import.meta.env.DEV 
-      ? `/cloudinary/${CLOUDINARY_CLOUD_NAME}/image/upload`
-      : `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
-
-    const response = await fetch(url, {
-      method: 'POST',
-      body: formData,
-    });
+    const response = await fetch(
+      `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
+      {
+        method: 'POST',
+        body: formData,
+      }
+    );
 
     if (!response.ok) {
       const error = await response.text();
@@ -43,80 +70,52 @@ export const uploadImageToCloudinary = async (file: File): Promise<string> => {
   }
 };
 
-// Função auxiliar para fazer requests à API
-const apiRequest = async (action: string, method: string = 'GET', data?: any) => {
-  const baseUrl = getApiBase();
-  
-  // Constrói a URL
-  let url = import.meta.env.PROD 
-    ? `${baseUrl}/macros/s/${import.meta.env.VITE_GOOGLE_SCRIPT_ID}/exec`
-    : `/api`;
-  
-  // Adiciona ação e chave (a chave é adicionada automaticamente pelo proxy no dev)
-  const params = new URLSearchParams();
-  params.append('action', action);
-  
-  if (import.meta.env.PROD && import.meta.env.VITE_API_KEY) {
-    params.append('key', import.meta.env.VITE_API_KEY);
-  }
-  
-  url += `?${params.toString()}`;
-  
-  const options: RequestInit = {
-    method,
-    headers: {
-      'Accept': 'application/json',
-    },
-  };
-  
-  if (data && method !== 'GET') {
-    options.headers = {
-      ...options.headers,
-      'Content-Type': 'application/json',
+// API Service genérico
+const apiService = {
+  async request(action: string, method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET', data?: any) {
+    const url = buildApiUrl(action);
+    
+    const options: RequestInit = {
+      method,
+      headers: {
+        'Accept': 'application/json',
+        ...(data && method !== 'GET' ? { 'Content-Type': 'application/json' } : {})
+      },
+      ...(data && method !== 'GET' ? { body: JSON.stringify(data) } : {})
     };
-    options.body = JSON.stringify(data);
-  }
-  
-  try {
-    const response = await fetch(url, options);
-    
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+
+    try {
+      const response = await fetch(url, options);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error(`API Error (${action}):`, error);
+      throw error;
     }
-    
-    const result = await response.json();
-    
-    if (!result.success && result.error) {
-      throw new Error(result.error);
-    }
-    
-    return result;
-  } catch (error) {
-    console.error(`API Request error (${action}):`, error);
-    throw error;
+  },
+
+  // Métodos específicos
+  async get(action: string) {
+    return this.request(action, 'GET');
+  },
+
+  async post(action: string, data: any) {
+    return this.request(action, 'POST', data);
+  },
+
+  async delete(action: string, id: string) {
+    return this.request(action, 'DELETE', { id });
   }
 };
 
-// Serviços simplificados
-export const saveProductToSheet = (productData: any) => 
-  apiRequest('saveProduct', 'POST', productData);
-
-export const deleteProductFromSheet = (id: string) => 
-  apiRequest('deleteProduct', 'POST', { id });
-
-export const saveCategoryToSheet = (categoryData: any) => 
-  apiRequest('salvarCategoria', 'POST', categoryData);
-
-export const deleteCategoryFromSheet = (id: string) => 
-  apiRequest('deletarCategoria', 'POST', { id });
-
-// Serviço para buscar dados
-export const fetchSheetData = async (action: string) => {
-  try {
-    const result = await apiRequest(action, 'GET');
-    return result;
-  } catch (error) {
-    console.error(`Error fetching ${action}:`, error);
-    return { success: false, error: 'Failed to fetch data' };
-  }
-};
+// Exportações específicas
+export const saveProductToSheet = (data: any) => apiService.post('saveProduct', data);
+export const deleteProductFromSheet = (id: string) => apiService.post('deleteProduct', { id });
+export const saveCategoryToSheet = (data: any) => apiService.post('salvarCategoria', data);
+export const deleteCategoryFromSheet = (id: string) => apiService.post('deletarCategoria', { id });
+export const getProducts = () => apiService.get('getProdutos');
+export const getCategories = () => apiService.get('getCategorias');
