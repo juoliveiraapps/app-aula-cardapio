@@ -1,23 +1,34 @@
 // src/services/adminService.ts
-const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'dm5scqxho';
-const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'cardapio_upload';
-const API_KEY = import.meta.env.VITE_API_KEY || '';
+const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
 
-// Serviço para upload de imagens (usando fetch nativo)
+// URL base para API - usa proxy no dev, direto no production
+const getApiBase = () => {
+  if (import.meta.env.PROD) {
+    return import.meta.env.VITE_GOOGLE_SCRIPT_URL || 'https://script.google.com';
+  }
+  return ''; // No dev, usa o proxy relativo
+};
+
+// Serviço para upload de imagens (usando proxy no dev)
 export const uploadImageToCloudinary = async (file: File): Promise<string> => {
   try {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
     formData.append('folder', 'cardapio/produtos');
+    formData.append('cloud_name', CLOUDINARY_CLOUD_NAME);
 
-    const response = await fetch(
-      `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
-      {
-        method: 'POST',
-        body: formData,
-      }
-    );
+    // No desenvolvimento, podemos usar o proxy se configurado
+    // Em produção, vai direto para Cloudinary
+    const url = import.meta.env.DEV 
+      ? `/cloudinary/${CLOUDINARY_CLOUD_NAME}/image/upload`
+      : `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      body: formData,
+    });
 
     if (!response.ok) {
       const error = await response.text();
@@ -32,119 +43,80 @@ export const uploadImageToCloudinary = async (file: File): Promise<string> => {
   }
 };
 
-// Serviço para salvar produto no Google Sheets
-export const saveProductToSheet = async (productData: any): Promise<any> => {
-  try {
-    const response = await fetch(`/api?action=saveProduct&key=${API_KEY}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify(productData),
-    });
-
-    const data = await response.json();
-    
-    if (!data.success) {
-      throw new Error(data.error || 'Erro ao salvar produto');
-    }
-
-    return data;
-  } catch (error) {
-    console.error('Erro ao salvar produto:', error);
-    throw error;
+// Função auxiliar para fazer requests à API
+const apiRequest = async (action: string, method: string = 'GET', data?: any) => {
+  const baseUrl = getApiBase();
+  
+  // Constrói a URL
+  let url = import.meta.env.PROD 
+    ? `${baseUrl}/macros/s/${import.meta.env.VITE_GOOGLE_SCRIPT_ID}/exec`
+    : `/api`;
+  
+  // Adiciona ação e chave (a chave é adicionada automaticamente pelo proxy no dev)
+  const params = new URLSearchParams();
+  params.append('action', action);
+  
+  if (import.meta.env.PROD && import.meta.env.VITE_API_KEY) {
+    params.append('key', import.meta.env.VITE_API_KEY);
   }
-};
-
-// Serviço para deletar produto
-export const deleteProductFromSheet = async (id: string): Promise<any> => {
-  try {
-    const response = await fetch(`/api?action=deleteProduct&key=${API_KEY}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify({ id }),
-    });
-
-    const data = await response.json();
-    
-    if (!data.success) {
-      throw new Error(data.error || 'Erro ao deletar produto');
-    }
-
-    return data;
-  } catch (error) {
-    console.error('Erro ao deletar produto:', error);
-    throw error;
+  
+  url += `?${params.toString()}`;
+  
+  const options: RequestInit = {
+    method,
+    headers: {
+      'Accept': 'application/json',
+    },
+  };
+  
+  if (data && method !== 'GET') {
+    options.headers = {
+      ...options.headers,
+      'Content-Type': 'application/json',
+    };
+    options.body = JSON.stringify(data);
   }
-};
-
-// Serviço para buscar produtos existentes
-export const getExistingProducts = async () => {
+  
   try {
-    const response = await fetch(`/api?action=getProdutos&key=${API_KEY}`);
+    const response = await fetch(url, options);
     
     if (!response.ok) {
-      throw new Error('Erro ao buscar produtos');
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
-
-    const data = await response.json();
-    return Array.isArray(data) ? data : [];
-  } catch (error) {
-    console.error('Erro ao buscar produtos:', error);
-    return [];
-  }
-};
-
-// Serviço para salvar categoria
-export const saveCategoryToSheet = async (categoryData: any): Promise<any> => {
-  try {
-    const response = await fetch(`/api?action=salvarCategoria&key=${API_KEY}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify(categoryData),
-    });
-
-    const data = await response.json();
     
-    if (!data.success) {
-      throw new Error(data.error || 'Erro ao salvar categoria');
+    const result = await response.json();
+    
+    if (!result.success && result.error) {
+      throw new Error(result.error);
     }
-
-    return data;
+    
+    return result;
   } catch (error) {
-    console.error('Erro ao salvar categoria:', error);
+    console.error(`API Request error (${action}):`, error);
     throw error;
   }
 };
 
-// Serviço para deletar categoria
-export const deleteCategoryFromSheet = async (id: string): Promise<any> => {
+// Serviços simplificados
+export const saveProductToSheet = (productData: any) => 
+  apiRequest('saveProduct', 'POST', productData);
+
+export const deleteProductFromSheet = (id: string) => 
+  apiRequest('deleteProduct', 'POST', { id });
+
+export const saveCategoryToSheet = (categoryData: any) => 
+  apiRequest('salvarCategoria', 'POST', categoryData);
+
+export const deleteCategoryFromSheet = (id: string) => 
+  apiRequest('deletarCategoria', 'POST', { id });
+
+// Serviço para buscar dados
+export const fetchSheetData = async (action: string) => {
   try {
-    const response = await fetch(`/api?action=deletarCategoria&key=${API_KEY}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify({ id }),
-    });
-
-    const data = await response.json();
-    
-    if (!data.success) {
-      throw new Error(data.error || 'Erro ao deletar categoria');
-    }
-
-    return data;
+    const result = await apiRequest(action, 'GET');
+    return result;
   } catch (error) {
-    console.error('Erro ao deletar categoria:', error);
-    throw error;
+    console.error(`Error fetching ${action}:`, error);
+    return { success: false, error: 'Failed to fetch data' };
   }
 };
