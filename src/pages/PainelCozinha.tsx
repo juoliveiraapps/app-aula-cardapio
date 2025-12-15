@@ -229,72 +229,123 @@ const PainelCozinha: React.FC = () => {
     }
   };
   
-  // Renderizar itens do pedido
-  const renderItens = (itens: any) => {
-    if (!itens) return <p className="text-gray-400">Sem itens</p>;
+  // Função para processar itens (JSON string ou array)
+  const processarItens = (itens: any): any[] => {
+    if (!itens) return [];
     
-    if (Array.isArray(itens)) {
-      return (
-        <div className="space-y-2">
-          {itens.slice(0, 4).map((item: any, index: number) => {
-            const quantidade = parseInt(item.quantidade) || 1;
-            const precoUnitario = parseFloat(item.preco) || parseFloat(item.valor) || 0;
-            const precoTotal = quantidade * precoUnitario;
-            
-            return (
-              <div key={index} className="text-sm">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <span className="font-medium">{quantidade}x</span>
-                    <span className="ml-2">{item.nome || item.produto || 'Item'}</span>
-                    {item.observacao && (
-                      <div className="text-xs text-gray-400 mt-1">
-                        Obs: {item.observacao}
-                      </div>
-                    )}
+    try {
+      // Se for string JSON, parsear
+      if (typeof itens === 'string') {
+        const parsed = JSON.parse(itens);
+        if (Array.isArray(parsed)) {
+          return parsed;
+        }
+        return [];
+      }
+      
+      // Se já for array, retornar
+      if (Array.isArray(itens)) {
+        return itens;
+      }
+      
+      return [];
+    } catch (error) {
+      console.error('Erro ao processar itens:', error);
+      return [];
+    }
+  };
+  
+  // Renderizar itens do pedido - CORRIGIDA
+  const renderItens = (itens: any) => {
+    const itensProcessados = processarItens(itens);
+    
+    if (itensProcessados.length === 0) {
+      return <p className="text-gray-400 text-sm">Sem itens</p>;
+    }
+    
+    return (
+      <div className="space-y-2">
+        {itensProcessados.slice(0, 4).map((item: any, index: number) => {
+          // Extrair valores corretamente (seus dados vem assim):
+          // {
+          //   "produto_id":"prod001",
+          //   "nome":"Espresso Clássico",
+          //   "quantidade":1,
+          //   "precoUnitario":5.5,
+          //   "precoTotal":5.5,
+          //   "opcoes":["Pequeno"]
+          // }
+          
+          const quantidade = parseInt(item.quantidade) || 1;
+          const precoUnitario = parseFloat(item.precoUnitario) || parseFloat(item.preco) || 0;
+          const precoTotal = parseFloat(item.precoTotal) || quantidade * precoUnitario;
+          const nome = item.nome || item.produto || 'Item';
+          const opcoes = item.opcoes || item.opcoesSelecionadas || [];
+          
+          return (
+            <div key={index} className="text-sm border-b border-gray-700/50 pb-2 last:border-0">
+              <div className="flex justify-between items-start">
+                <div className="flex-1">
+                  <div className="font-medium text-gray-300">
+                    {quantidade}x {nome}
                   </div>
-                  <div className="text-right ml-2">
-                    <div className="font-medium">
-                      R$ {precoTotal.toFixed(2)}
+                  
+                  {/* Mostrar opções se existirem */}
+                  {Array.isArray(opcoes) && opcoes.length > 0 && (
+                    <div className="text-xs text-gray-400 mt-1 space-y-0.5">
+                      {opcoes.map((opcao: string, i: number) => (
+                        <div key={i}>• {opcao}</div>
+                      ))}
                     </div>
+                  )}
+                  
+                  {/* Mostrar observação se existir */}
+                  {item.observacao && (
+                    <div className="text-xs text-yellow-400 mt-1 italic">
+                      Obs: {item.observacao}
+                    </div>
+                  )}
+                </div>
+                
+                <div className="text-right ml-2 min-w-[80px]">
+                  <div className="font-medium text-white">
+                    R$ {precoTotal.toFixed(2)}
+                  </div>
+                  {precoUnitario > 0 && (
                     <div className="text-xs text-gray-400">
                       (R$ {precoUnitario.toFixed(2)} un.)
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
-            );
-          })}
-          {itens.length > 4 && (
-            <p className="text-xs text-gray-500">+ {itens.length - 4} itens...</p>
-          )}
-        </div>
-      );
-    }
-    
-    // Tentar parsear como JSON string
-    try {
-      const itensParsed = JSON.parse(itens);
-      if (Array.isArray(itensParsed)) {
-        return renderItens(itensParsed);
-      }
-    } catch {}
-    
-    return <p className="text-gray-400 text-sm truncate">{String(itens)}</p>;
+            </div>
+          );
+        })}
+        
+        {itensProcessados.length > 4 && (
+          <p className="text-xs text-gray-500 pt-2">
+            + {itensProcessados.length - 4} itens...
+          </p>
+        )}
+      </div>
+    );
   };
   
-  // Calcular total do pedido
+  // Calcular total do pedido - CORRIGIDA
   const calcularTotalPedido = (pedido: any) => {
+    // Primeiro tentar usar o total direto
     if (pedido.total) {
       return parseFloat(pedido.total);
     }
     
-    // Calcular a partir dos itens se necessário
-    if (pedido.itens && Array.isArray(pedido.itens)) {
-      return pedido.itens.reduce((total: number, item: any) => {
+    // Calcular a partir dos itens
+    const itensProcessados = processarItens(pedido.itens);
+    if (itensProcessados.length > 0) {
+      return itensProcessados.reduce((total: number, item: any) => {
         const quantidade = parseInt(item.quantidade) || 1;
-        const precoUnitario = parseFloat(item.preco) || parseFloat(item.valor) || 0;
-        return total + (quantidade * precoUnitario);
+        const precoUnitario = parseFloat(item.precoUnitario) || parseFloat(item.preco) || 0;
+        const precoTotal = parseFloat(item.precoTotal) || quantidade * precoUnitario;
+        return total + precoTotal;
       }, 0);
     }
     
@@ -458,6 +509,8 @@ const PainelCozinha: React.FC = () => {
             const statusCor = getStatusClass(pedido.status || 'Recebido');
             const totalPedido = calcularTotalPedido(pedido);
             const pedidoId = pedido.pedido_id || pedido.id || `PED${index}`;
+            const itensProcessados = processarItens(pedido.itens);
+            const totalItens = itensProcessados.reduce((total, item) => total + (parseInt(item.quantidade) || 1), 0);
             
             return (
               <div
@@ -513,7 +566,7 @@ const PainelCozinha: React.FC = () => {
                 
                 {/* ITENS DO PEDIDO */}
                 <div>
-                  <h4 className="font-medium mb-2">📦 Itens do Pedido</h4>
+                  <h4 className="font-medium mb-2">📦 Itens do Pedido ({totalItens} itens)</h4>
                   {renderItens(pedido.itens)}
                   
                   {pedido.observacoes && (
@@ -531,6 +584,9 @@ const PainelCozinha: React.FC = () => {
                       <span className="text-xl font-bold">
                         R$ {totalPedido.toFixed(2)}
                       </span>
+                      <div className="text-xs text-gray-400">
+                        {totalItens} itens
+                      </div>
                     </div>
                     
                     <div className="flex space-x-2">
