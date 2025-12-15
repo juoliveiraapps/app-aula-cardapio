@@ -3,12 +3,10 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { Home } from './pages/Home';
 import Cardapio from './pages/Cardapio';
 import Checkout from './pages/Checkout';
-import PainelCozinha from './pages/PainelCozinha';
 import AdminLogin from './pages/AdminLogin';
-import AdminDashboard from './pages/AdminDashboard'; // Você vai criar este arquivo
-import { useAdminAuth } from './hooks/useAdminAuth'; // Hook de autenticação
 import AdminDashboard from './pages/AdminDashboard';
-import AdminLogin from './pages/AdminLogin';
+import PainelCozinha from './pages/PainelCozinha';
+import { useAdminAuth } from './hooks/useAdminAuth'; // Hook de autenticação
 
 // Componente wrapper para rotas protegidas
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -37,23 +35,31 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/cardapio" element={<Cardapio />} />
           <Route path="/checkout" element={<Checkout />} />
-         
           
-          {/* Rotas administrativas */}
+          {/* Rotas administrativas - Públicas */}
           <Route path="/admin/login" element={<AdminLogin />} />
           
-        {/* Rotas administrativas */}
-  <Route path="/admin/login" element={<AdminLogin />} />
-  <Route 
-    path="/admin" 
-    element={
-      <ProtectedRoute>
-        <AdminDashboard />
-      </ProtectedRoute>
-    } 
-  />
+          {/* Rotas administrativas - Protegidas */}
+          <Route 
+            path="/admin/dashboard" 
+            element={
+              <ProtectedRoute>
+                <AdminDashboard />
+              </ProtectedRoute>
+            } 
+          />
           
-        
+          <Route 
+            path="/admin/cozinha" 
+            element={
+              <ProtectedRoute>
+                <PainelCozinha />
+              </ProtectedRoute>
+            } 
+          />
+          
+          {/* Redirecionamento padrão */}
+          <Route path="/admin" element={<Navigate to="/admin/login" />} />
           
           {/* Rota 404 (opcional) */}
           <Route path="*" element={<Navigate to="/" />} />
