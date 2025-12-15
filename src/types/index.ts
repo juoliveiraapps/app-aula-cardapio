@@ -8,11 +8,12 @@ export interface Configuracao {
 }
 
 export interface Categoria {
-  categoria_id: string;
+  id: string;
   nome: string;
-  descricao: string;
-  posicao: number;
-  visivel: boolean;
+  descricao?: string;
+  posicao?: number;
+  visivel?: boolean;
+  icone?: string;
 }
 
 export interface OpcaoProduto {
