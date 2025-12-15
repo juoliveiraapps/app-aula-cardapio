@@ -4,6 +4,10 @@ import { useCardapioData } from '../hooks/useCardapioData';
 import { Produto } from '../types';
 import ProductForm from '../components/admin/ProductForm';
 import ProductList from '../components/admin/ProductList';
+import { 
+  saveProductToSheet, 
+  deleteProductFromSheet 
+} from '../services/adminService';
 
 const AdminCardapio = () => {
   const { produtos: produtosData, categorias, loading, error } = useCardapioData();
@@ -25,88 +29,53 @@ const AdminCardapio = () => {
     opcoes: prod.opcoes || []
   }));
 
-  // Função para salvar produto
-  const handleSaveProduct = async (productData: any): Promise<boolean> => {
-    try {
-      setProcessing(true);
-      
-      console.log('📝 Salvando produto:', productData);
-      
-      const API_KEY = "cce4d5770afe09d2c790dcca4272e1190462a6a574270b040c835889115c6914";
-      const API_URL = `${window.location.origin}/api`;
-      
-      const response = await fetch(`${API_URL}?action=saveProduct&key=${API_KEY}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify(productData)
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        console.log('✅ Produto salvo com sucesso');
-        alert(data.message || 'Produto salvo com sucesso!');
-        
-        // Recarregar a página para atualizar os dados
-        window.location.reload();
-        return true;
-      } else {
-        throw new Error(data.error || 'Erro ao salvar produto');
-      }
-    } catch (err: any) {
-      console.error('❌ Erro ao salvar produto:', err);
-      alert(`Erro: ${err.message || 'Erro desconhecido'}`);
-      return false;
-    } finally {
-      setProcessing(false);
-    }
-  };
+ const handleSaveProduct = async (productData: any): Promise<boolean> => {
+  try {
+    setProcessing(true);
+    console.log('📝 Salvando produto:', productData);
+    
+    const data = await saveProductToSheet(productData);
+    
+    console.log('✅ Produto salvo com sucesso:', data);
+    alert(data.message || 'Produto salvo com sucesso!');
+    
+    // Recarregar a página para atualizar os dados
+    window.location.reload();
+    return true;
+    
+  } catch (err: any) {
+    console.error('❌ Erro ao salvar produto:', err);
+    alert(`Erro: ${err.message || 'Erro desconhecido'}`);
+    return false;
+  } finally {
+    setProcessing(false);
+  }
+};
 
-  // Função para deletar produto
-  const handleDeleteProduct = async (id: string): Promise<void> => {
-    if (!window.confirm('Tem certeza que deseja excluir este produto?')) {
-      return;
-    }
+const handleDeleteProduct = async (id: string): Promise<void> => {
+  if (!window.confirm('Tem certeza que deseja excluir este produto?')) {
+    return;
+  }
 
-    try {
-      setProcessing(true);
-      
-      console.log('🗑️ Deletando produto ID:', id);
-      
-      // AJUSTE: Você precisa criar uma ação no Apps Script para deletar produtos
-      const API_KEY = "cce4d5770afe09d2c790dcca4272e1190462a6a574270b040c835889115c6914";
-      const API_URL = `${window.location.origin}/api`;
-      
-      const response = await fetch(`${API_URL}?action=deleteProduct&key=${API_KEY}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify({ id })
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        console.log('✅ Produto deletado com sucesso');
-        alert(data.message || 'Produto deletado com sucesso!');
-        
-        // Recarregar a página para atualizar os dados
-        window.location.reload();
-      } else {
-        throw new Error(data.error || 'Erro ao deletar produto');
-      }
-    } catch (err: any) {
-      console.error('❌ Erro ao deletar produto:', err);
-      alert(`Erro: ${err.message || 'Erro desconhecido'}`);
-    } finally {
-      setProcessing(false);
-    }
-  };
+  try {
+    setProcessing(true);
+    console.log('🗑️ Deletando produto ID:', id);
+    
+    const data = await deleteProductFromSheet(id);
+    
+    console.log('✅ Produto deletado com sucesso:', data);
+    alert(data.message || 'Produto deletado com sucesso!');
+    
+    // Recarregar a página para atualizar os dados
+    window.location.reload();
+    
+  } catch (err: any) {
+    console.error('❌ Erro ao deletar produto:', err);
+    alert(`Erro: ${err.message || 'Erro desconhecido'}`);
+  } finally {
+    setProcessing(false);
+  }
+};
 
   const handleNewProduct = () => {
     setEditingProduct(null);
