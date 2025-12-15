@@ -7,6 +7,8 @@ import PainelCozinha from './pages/PainelCozinha';
 import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard'; // Você vai criar este arquivo
 import { useAdminAuth } from './hooks/useAdminAuth'; // Hook de autenticação
+import AdminDashboard from './pages/AdminDashboard';
+import AdminLogin from './pages/AdminLogin';
 
 // Componente wrapper para rotas protegidas
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -35,20 +37,21 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/cardapio" element={<Cardapio />} />
           <Route path="/checkout" element={<Checkout />} />
-          <Route path="/cozinha" element={<PainelCozinha />} />
+         
           
           {/* Rotas administrativas */}
           <Route path="/admin/login" element={<AdminLogin />} />
           
-          {/* Rotas protegidas do admin */}
-          <Route 
-            path="/admin" 
-            element={
-              <ProtectedRoute>
-                <AdminDashboard />
-              </ProtectedRoute>
-            } 
-          />
+        {/* Rotas administrativas */}
+  <Route path="/admin/login" element={<AdminLogin />} />
+  <Route 
+    path="/admin" 
+    element={
+      <ProtectedRoute>
+        <AdminDashboard />
+      </ProtectedRoute>
+    } 
+  />
           
           {/* Rota para /admin redirecionar para /admin/login */}
           <Route path="/admin" element={<Navigate to="/admin/login" />} />
