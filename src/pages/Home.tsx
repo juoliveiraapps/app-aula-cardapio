@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Coffee, Clock, MapPin, Phone, Users, Star } from 'lucide-react';
+import { Coffee, Users, Star } from 'lucide-react';
 import { useCardapioData } from '../hooks/useCardapioData';
 import { LoadingSpinner } from '../components/UI/LoadingSpinner';
 
@@ -71,9 +71,6 @@ export function Home() {
   // Configurações padrão caso não tenha no Google Sheets
   const defaultConfig = {
     nome_loja: config?.Loja || config?.nome_loja || 'Coffee House',
-    telefone_whatsapp: config?.whatsapp || config?.telefone_whatsapp || '(00) 00000-0000',
-    endereco_loja: 'Centro da Cidade',
-    horario_funcionamento: 'Seg-Sex: 8h-18h',
     descricao_loja: 'Sabores que aquecem o coração e alegram o dia'
   };
 
@@ -128,57 +125,18 @@ export function Home() {
                 {defaultConfig.descricao_loja}
               </p>
 
-              <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
+              {/* Botão ÚNICO centralizado */}
+              <div className="mb-12">
                 <Link
                   to="/cardapio"
-                  className="bg-gradient-to-r from-[#e58840] to-[#e58840]/90 hover:from-[#e58840]/90 hover:to-[#e58840] text-[#400b0b] px-8 py-4 rounded-full text-lg md:text-xl font-bold transition-all duration-300 shadow-2xl hover:shadow-[#e58840]/50 transform hover:scale-105 flex items-center justify-center gap-3"
+                  className="inline-block bg-gradient-to-r from-[#e58840] to-[#e58840]/90 hover:from-[#e58840]/90 hover:to-[#e58840] text-[#400b0b] px-10 py-4 md:px-14 md:py-5 rounded-full text-lg md:text-xl font-bold transition-all duration-300 shadow-2xl hover:shadow-[#e58840]/50 transform hover:scale-110 flex items-center justify-center gap-3 mx-auto w-fit"
                 >
-                  <Coffee className="w-5 h-5" />
+                  <Coffee className="w-6 h-6 md:w-7 md:h-7" />
                   Fazer Pedido Agora
                 </Link>
-
-                <a
-                  href={`https://wa.me/${defaultConfig.telefone_whatsapp.replace(/\D/g, '')}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white px-8 py-4 rounded-full text-lg md:text-xl font-bold transition-all duration-300 shadow-2xl hover:shadow-green-500/50 transform hover:scale-105 flex items-center justify-center gap-3"
-                >
-                  <Phone className="w-5 h-5" />
-                  Fale no WhatsApp
-                </a>
               </div>
 
-              <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-                <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20 hover:border-[#e58840]/50 transition-all duration-300 hover:scale-105 hover:shadow-xl">
-                  <div className="bg-[#e58840] text-[#400b0b] w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Clock className="w-6 h-6" />
-                  </div>
-                  <h3 className="text-white font-bold text-lg mb-2">Horário</h3>
-                  <p className="text-gray-200 text-sm md:text-base">
-                    {defaultConfig.horario_funcionamento}
-                  </p>
-                </div>
-
-                <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20 hover:border-[#e58840]/50 transition-all duration-300 hover:scale-105 hover:shadow-xl">
-                  <div className="bg-[#e58840] text-[#400b0b] w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <MapPin className="w-6 h-6" />
-                  </div>
-                  <h3 className="text-white font-bold text-lg mb-2">Localização</h3>
-                  <p className="text-gray-200 text-sm md:text-base">
-                    {defaultConfig.endereco_loja}
-                  </p>
-                </div>
-
-                <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20 hover:border-[#e58840]/50 transition-all duration-300 hover:scale-105 hover:shadow-xl">
-                  <div className="bg-[#e58840] text-[#400b0b] w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Phone className="w-6 h-6" />
-                  </div>
-                  <h3 className="text-white font-bold text-lg mb-2">WhatsApp</h3>
-                  <p className="text-gray-200 text-sm md:text-base font-mono">
-                    {defaultConfig.telefone_whatsapp}
-                  </p>
-                </div>
-              </div>
+              {/* Cards removidos conforme solicitado */}
             </div>
           </main>
 
