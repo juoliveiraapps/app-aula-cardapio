@@ -14,6 +14,7 @@ export interface Categoria {
   posicao?: number;
   visivel?: boolean;
   icone_svg?: string;
+  icone?: string;
 }
 
 export interface OpcaoProduto {
