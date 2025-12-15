@@ -5,8 +5,7 @@ import Cardapio from './pages/Cardapio';
 import Checkout from './pages/Checkout';
 import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
-import PainelCozinha from './pages/PainelCozinha';
-import { useAdminAuth } from './hooks/useAdminAuth'; // Hook de autenticação
+import { useAdminAuth } from './hooks/useAdminAuth';
 
 // Componente wrapper para rotas protegidas
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -36,12 +35,12 @@ function App() {
           <Route path="/cardapio" element={<Cardapio />} />
           <Route path="/checkout" element={<Checkout />} />
           
-          {/* Rotas administrativas - Públicas */}
+          {/* Rota de login administrativo */}
           <Route path="/admin/login" element={<AdminLogin />} />
           
-          {/* Rotas administrativas - Protegidas */}
+          {/* Rotas administrativas protegidas */}
           <Route 
-            path="/admin/dashboard" 
+            path="/admin/*" 
             element={
               <ProtectedRoute>
                 <AdminDashboard />
@@ -49,19 +48,10 @@ function App() {
             } 
           />
           
-          <Route 
-            path="/admin/cozinha" 
-            element={
-              <ProtectedRoute>
-                <PainelCozinha />
-              </ProtectedRoute>
-            } 
-          />
+          {/* Redirecionamentos */}
+          <Route path="/admin" element={<Navigate to="/admin/cardapio" replace />} />
           
-          {/* Redirecionamento padrão */}
-          <Route path="/admin" element={<Navigate to="/admin/login" />} />
-          
-          {/* Rota 404 (opcional) */}
+          {/* Rota 404 */}
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </div>
