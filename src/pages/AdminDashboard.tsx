@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAdminAuth } from '../hooks/useAdminAuth';
 import { Utensils, Coffee, Tag, Settings, LogOut } from 'lucide-react';
 import Sidebar from '../components/admin/Sidebar';
-import PainelCozinha from './PainelCozinha';
+import AdminPainelCozinha from './AdminPainelCozinha';
 import AdminCardapio from './AdminCardapio';
 import AdminCategorias from './AdminCategorias';
 
