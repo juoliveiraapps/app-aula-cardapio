@@ -22,7 +22,7 @@ const AdminLogin = () => {
       
       if (password === ADMIN_PASSWORD) {
         localStorage.setItem('admin_authenticated', 'true');
-        navigate('/admin');
+        navigate('/admin/dashboard');
       } else {
         setError('Senha incorreta');
       }
