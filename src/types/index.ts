@@ -97,3 +97,11 @@ export interface EnderecoViaCEP {
   uf: string;
   erro?: boolean;
 }
+export interface CategoryFormData {
+  id?: string;
+  nome: string;
+  descricao: string;
+  posicao: number;
+  visivel: boolean;
+  icone_svg: string;
+}
