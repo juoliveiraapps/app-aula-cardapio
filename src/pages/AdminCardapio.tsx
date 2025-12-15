@@ -4,10 +4,7 @@ import { useCardapioData } from '../hooks/useCardapioData';
 import { Produto } from '../types';
 import ProductForm from '../components/admin/ProductForm';
 import ProductList from '../components/admin/ProductList';
-import { 
-  saveProductToSheet, 
-  deleteProductFromSheet 
-} from '../services/adminService';
+import { saveProductToSheet, deleteProductFromSheet } from '../services/adminService';
 
 const AdminCardapio = () => {
   const { produtos: produtosData, categorias, loading, error } = useCardapioData();
