@@ -53,8 +53,7 @@ function App() {
     } 
   />
           
-          {/* Rota para /admin redirecionar para /admin/login */}
-          <Route path="/admin" element={<Navigate to="/admin/login" />} />
+        
           
           {/* Rota 404 (opcional) */}
           <Route path="*" element={<Navigate to="/" />} />
