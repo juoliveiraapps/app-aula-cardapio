@@ -1,4 +1,3 @@
-// src/pages/PainelCozinha.tsx - VERSÃO FINAL
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 
