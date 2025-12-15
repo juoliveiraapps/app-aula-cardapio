@@ -49,6 +49,29 @@ const AdminCardapio = () => {
     }, 0);
   };
 
+ const handleSaveProduct = async (productData: any): Promise<boolean> => {
+  try {
+    setProcessing(true);
+    console.log('📝 Salvando produto:', productData);
+    
+    const data = await saveProductToSheet(productData);
+    
+    console.log('✅ Produto salvo com sucesso:', data);
+    alert(data.message || 'Produto salvo com sucesso!');
+    
+    // Recarregar a página para atualizar os dados
+    window.location.reload();
+    return true;
+    
+  } catch (err: any) {
+    console.error('❌ Erro ao salvar produto:', err);
+    alert(`Erro: ${err.message || 'Erro desconhecido'}`);
+    return false;
+  } finally {
+    setProcessing(false);
+  }
+};
+
 const handleDeleteProduct = async (id: string): Promise<void> => {
   if (!window.confirm('Tem certeza que deseja excluir este produto?')) {
     return;
