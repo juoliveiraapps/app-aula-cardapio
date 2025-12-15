@@ -5,6 +5,7 @@ import Sidebar from '../components/admin/Sidebar';
 import AdminPainelCozinha from './AdminPainelCozinha';
 import AdminCardapio from './AdminCardapio';
 import AdminCategorias from './AdminCategorias';
+import { saveProductToSheet, deleteProductFromSheet } from '../services/adminService';
 
 const AdminDashboard = () => {
   const { logout } = useAdminAuth();
