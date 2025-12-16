@@ -261,14 +261,47 @@ const AdminCardapio = () => {
       />
 
       {/* Modal do Formulário - COM DEBUG VISUAL */}
-   {showForm && (
+     {showForm && (
   <ProductFormMinimal
     categorias={categorias}
     onSubmit={handleSaveProduct}
     onClose={handleCloseForm}
     loading={processing}
   />
-)
+)}>
+          <div style={{
+            backgroundColor: '#1f2937',
+            borderRadius: '1rem',
+            border: '4px solid yellow',
+            padding: '2rem',
+            maxWidth: '500px',
+            width: '90%',
+            color: 'white',
+          }}>
+            <h3 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '1rem' }}>
+              DEBUG: Modal está sendo renderizado!
+            </h3>
+            <p style={{ marginBottom: '1rem' }}>
+              showForm = {showForm.toString()}<br />
+              categorias = {categorias.length}<br />
+              editingProduct = {editingProduct ? 'Sim' : 'Não'}
+            </p>
+            <button
+              onClick={handleCloseForm}
+              style={{
+                backgroundColor: '#e58840',
+                color: '#400b0b',
+                fontWeight: 'bold',
+                padding: '0.75rem 1.5rem',
+                borderRadius: '0.5rem',
+                width: '100%',
+              }}
+            >
+              Fechar Debug Modal
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Modal real (comentado temporariamente) */}
       {false && showForm && (
