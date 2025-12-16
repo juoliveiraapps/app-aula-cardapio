@@ -1,8 +1,10 @@
+// No AdminCardapio, substitua a importação e o uso:
 import React, { useState } from 'react';
 import { Plus, RefreshCw } from 'lucide-react';
 import { useCardapioData } from '../hooks/useCardapioData';
 import { Produto } from '../types';
-import ProductForm from '../components/admin/ProductForm';
+// REMOVA: import ProductForm from '../components/admin/ProductForm';
+import ProductFormMinimal from '../components/admin/ProductFormMinimal'; // ADICIONE
 import ProductList from '../components/admin/ProductList';
 import { saveProductToSheet, deleteProductFromSheet } from '../services/adminService';
 
@@ -26,53 +28,54 @@ const AdminCardapio = () => {
     opcoes: prod.opcoes || []
   }));
 
- const handleSaveProduct = async (productData: any): Promise<boolean> => {
-  try {
-    setProcessing(true);
-    console.log('📝 Salvando produto:', productData);
-    
-    const data = await saveProductToSheet(productData);
-    
-    console.log('✅ Produto salvo com sucesso:', data);
-    alert(data.message || 'Produto salvo com sucesso!');
-    
-    // Recarregar a página para atualizar os dados
-    window.location.reload();
-    return true;
-    
-  } catch (err: any) {
-    console.error('❌ Erro ao salvar produto:', err);
-    alert(`Erro: ${err.message || 'Erro desconhecido'}`);
-    return false;
-  } finally {
-    setProcessing(false);
-  }
-};
+  const handleSaveProduct = async (productData: any): Promise<boolean> => {
+    try {
+      setProcessing(true);
+      console.log('📝 Salvando produto:', productData);
+      
+      // Simulando um salvamento para teste
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      console.log('✅ Produto salvo com sucesso!');
+      alert('Produto salvo com sucesso! (TESTE)');
+      
+      // Fechar o modal após salvar
+      setShowForm(false);
+      setEditingProduct(null);
+      return true;
+      
+    } catch (err: any) {
+      console.error('❌ Erro ao salvar produto:', err);
+      alert(`Erro: ${err.message || 'Erro desconhecido'}`);
+      return false;
+    } finally {
+      setProcessing(false);
+    }
+  };
 
-const handleDeleteProduct = async (id: string): Promise<void> => {
-  if (!window.confirm('Tem certeza que deseja excluir este produto?')) {
-    return;
-  }
+  const handleDeleteProduct = async (id: string): Promise<void> => {
+    if (!window.confirm('Tem certeza que deseja excluir este produto?')) {
+      return;
+    }
 
-  try {
-    setProcessing(true);
-    console.log('🗑️ Deletando produto ID:', id);
-    
-    const data = await deleteProductFromSheet(id);
-    
-    console.log('✅ Produto deletado com sucesso:', data);
-    alert(data.message || 'Produto deletado com sucesso!');
-    
-    // Recarregar a página para atualizar os dados
-    window.location.reload();
-    
-  } catch (err: any) {
-    console.error('❌ Erro ao deletar produto:', err);
-    alert(`Erro: ${err.message || 'Erro desconhecido'}`);
-  } finally {
-    setProcessing(false);
-  }
-};
+    try {
+      setProcessing(true);
+      console.log('🗑️ Deletando produto ID:', id);
+      
+      const data = await deleteProductFromSheet(id);
+      
+      console.log('✅ Produto deletado com sucesso:', data);
+      alert(data.message || 'Produto deletado com sucesso!');
+      
+      // Recarregar a página para atualizar os dados
+      window.location.reload();
+      
+    } catch (err: any) {
+      console.error('❌ Erro ao deletar produto:', err);
+      alert(`Erro: ${err.message || 'Erro desconhecido'}`);
+    } finally {
+      setProcessing(false);
+    }
+  };
 
   const handleNewProduct = () => {
     setEditingProduct(null);
@@ -167,9 +170,9 @@ const handleDeleteProduct = async (id: string): Promise<void> => {
         emptyMessage="Nenhum produto cadastrado. Comece criando seu primeiro produto!"
       />
 
-      {/* Modal do Formulário */}
+      {/* Modal do Formulário - AGORA usando ProductFormMinimal */}
       {showForm && (
-        <ProductForm
+        <ProductFormMinimal
           initialData={editingProduct || undefined}
           categorias={categorias}
           onSubmit={handleSaveProduct}
