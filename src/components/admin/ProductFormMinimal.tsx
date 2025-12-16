@@ -18,45 +18,31 @@ const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
   onClose,
   loading = false
 }) => {
-  console.log('✅ ProductFormMinimal RENDERIZADO com dados:', { 
-    initialData, 
-    categorias,
-    hasCategorias: categorias.length > 0,
-    primeiraCategoriaId: categorias[0]?.id 
+  console.log('✅ ProductFormMinimal renderizado');
+  console.log('📊 Props recebidas:', {
+    hasInitialData: !!initialData,
+    initialCategoriaId: initialData?.categoria_id,
+    totalCategorias: categorias.length,
+    primeiraCategoria: categorias[0]
   });
 
-  // Encontrar categoria inicial corretamente
-  const getInitialCategoriaId = () => {
-    if (initialData?.categoria_id) {
-      return initialData.categoria_id;
-    }
-    
-    // Verificar se categorias[0] existe
-    if (categorias.length > 0 && categorias[0]?.id) {
-      return categorias[0].id;
-    }
-    
-    return ''; // Valor vazio se não houver categorias
-  };
-
-  const [formData, setFormData] = useState({
-    nome: initialData?.nome || '',
-    descricao: initialData?.descricao || '',
-    preco: initialData?.preco ? Number(initialData.preco) : '',
-    categoria_id: getInitialCategoriaId(), // Usar a função corrigida
-    disponivel: initialData?.disponivel !== false,
-    posicao: initialData?.posicao || 1,
-    imagem_url: initialData?.imagem_url || ''
-  });
-
+  // Estado simplificado
+  const [nome, setNome] = useState(initialData?.nome || '');
+  const [descricao, setDescricao] = useState(initialData?.descricao || '');
+  const [preco, setPreco] = useState(initialData?.preco ? Number(initialData.preco).toString() : '');
+  const [categoriaId, setCategoriaId] = useState(initialData?.categoria_id || '');
+  const [disponivel, setDisponivel] = useState(initialData?.disponivel !== false);
+  const [posicao, setPosicao] = useState(initialData?.posicao || 1);
+  const [imagem_url, setImagemUrl] = useState(initialData?.imagem_url || '');
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Log quando o estado muda
+  // Debug: logar mudanças na categoria
   useEffect(() => {
-    console.log('🔄 Estado formData atualizado:', formData);
-  }, [formData]);
+    console.log('🔄 Categoria atual:', categoriaId, 
+      'Nome:', categorias.find(c => c.id === categoriaId)?.nome);
+  }, [categoriaId, categorias]);
 
-  // Impedir rolagem da página quando o modal estiver aberto
+  // Impedir rolagem da página
   useEffect(() => {
     document.body.style.overflow = 'hidden';
     return () => {
@@ -64,108 +50,79 @@ const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
     };
   }, []);
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-  ) => {
-    const { name, value, type } = e.target;
-    
-    console.log(`✏️ Campo alterado: ${name} = ${value} (tipo: ${type})`);
-    
-    if (type === 'checkbox') {
-      const checked = (e.target as HTMLInputElement).checked;
-      setFormData(prev => ({ 
-        ...prev, 
-        [name]: checked 
-      }));
-    } else if (name === 'preco') {
-      // Permitir apenas números e ponto decimal
-      const sanitizedValue = value.replace(/[^\d.,]/g, '');
-      setFormData(prev => ({ 
-        ...prev, 
-        [name]: sanitizedValue 
-      }));
-    } else {
-      setFormData(prev => ({ 
-        ...prev, 
-        [name]: value 
-      }));
-    }
-    
-    // Limpar erro ao digitar
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
-    }
+  // Handlers diretos e simples
+  const handleNomeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setNome(e.target.value);
+    if (errors.nome) setErrors(prev => ({ ...prev, nome: '' }));
   };
 
-  // Função específica para select
-  const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    console.log(`📋 Select alterado: ${name} = ${value}`);
-    
-    setFormData(prev => ({ 
-      ...prev, 
-      [name]: value 
-    }));
-    
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
-    }
+  const handleDescricaoChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setDescricao(e.target.value);
+  };
+
+  const handlePrecoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/[^\d.,]/g, '');
+    setPreco(value);
+    if (errors.preco) setErrors(prev => ({ ...prev, preco: '' }));
+  };
+
+  // Handler DIRETO para categoria - SEM complicações
+  const handleCategoriaChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+    console.log('🔄 Categoria alterada para:', value);
+    setCategoriaId(value);
+    if (errors.categoria_id) setErrors(prev => ({ ...prev, categoria_id: '' }));
+  };
+
+  const handleDisponivelChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setDisponivel(e.target.checked);
+  };
+
+  const handlePosicaoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPosicao(parseInt(e.target.value) || 1);
   };
 
   const handleImageUploaded = (url: string) => {
     console.log('🖼️ Imagem enviada:', url);
-    setFormData(prev => ({ 
-      ...prev, 
-      imagem_url: url 
-    }));
+    setImagemUrl(url);
   };
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
     
-    if (!formData.nome.trim()) {
-      newErrors.nome = 'Nome do produto é obrigatório';
-    }
-    
-    if (!formData.categoria_id) {
-      newErrors.categoria_id = 'Selecione uma categoria';
-    }
-    
-    if (!formData.preco || Number(formData.preco) <= 0) {
+    if (!nome.trim()) newErrors.nome = 'Nome do produto é obrigatório';
+    if (!categoriaId) newErrors.categoria_id = 'Selecione uma categoria';
+    if (!preco || Number(preco.replace(',', '.')) <= 0) {
       newErrors.preco = 'Preço deve ser maior que zero';
     }
     
     setErrors(newErrors);
-    console.log('✅ Validação:', { hasErrors: Object.keys(newErrors).length > 0, errors: newErrors });
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('🔄 handleSubmit chamado');
     
     if (!validateForm()) {
       console.log('❌ Validação falhou');
       return;
     }
     
-    // Converter preço para número
-    const precoNumerico = typeof formData.preco === 'string' 
-      ? parseFloat(formData.preco.replace(',', '.')) 
-      : Number(formData.preco);
-    
     const productData = {
-      ...formData,
-      preco: precoNumerico,
+      nome,
+      descricao,
+      preco: Number(preco.replace(',', '.')),
+      categoria_id: categoriaId,
+      disponivel,
+      posicao,
+      imagem_url,
       id: initialData?.id || '',
       opcoes: initialData?.opcoes || []
     };
     
-    console.log('📤 Dados preparados para envio:', productData);
+    console.log('📤 Enviando dados:', productData);
     
     const success = await onSubmit(productData);
-    console.log('✅ Resultado do onSubmit:', success);
-    
     if (success) {
       onClose();
     }
@@ -201,17 +158,9 @@ const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
     );
   }
 
-  // Formatar preço para exibição
-  const formatPrice = (value: string | number) => {
-    const num = typeof value === 'string' 
-      ? parseFloat(value.replace(',', '.')) || 0 
-      : value;
-    return num.toLocaleString('pt-BR', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    });
-  };
-
+  // Encontrar categoria atual para exibir
+  const categoriaAtual = categorias.find(c => c.id === categoriaId);
+  
   return (
     <Portal>
       <div className="fixed inset-0 z-[9999]">
@@ -241,230 +190,188 @@ const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
 
             {/* Formulário */}
             <form onSubmit={handleSubmit} className="p-6 space-y-6">
-              {/* Seção 1: Informações básicas */}
-              <div className="space-y-6">
-                <h4 className="text-lg font-semibold text-white border-b border-gray-700/50 pb-2">
-                  Informações Básicas
-                </h4>
-                
-                {/* Nome */}
+              {/* Nome */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Nome do Produto *
+                </label>
+                <input
+                  type="text"
+                  value={nome}
+                  onChange={handleNomeChange}
+                  className={`w-full bg-gray-900/50 border ${
+                    errors.nome ? 'border-red-500' : 'border-gray-700'
+                  } rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#e58840]/50 focus:border-transparent transition-colors`}
+                  placeholder="Ex: Pizza Calabresa"
+                  disabled={loading}
+                />
+                {errors.nome && (
+                  <p className="mt-1 text-sm text-red-400 flex items-center gap-1">
+                    <AlertCircle className="w-4 h-4" />
+                    {errors.nome}
+                  </p>
+                )}
+              </div>
+
+              {/* Descrição */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Descrição
+                </label>
+                <textarea
+                  value={descricao}
+                  onChange={handleDescricaoChange}
+                  rows={3}
+                  className="w-full bg-gray-900/50 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#e58840]/50 focus:border-transparent transition-colors resize-none"
+                  placeholder="Descreva o produto..."
+                  disabled={loading}
+                />
+              </div>
+
+              {/* Preço e Categoria */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Preço */}
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Nome do Produto *
+                    Preço (R$) *
                   </label>
-                  <input
-                    type="text"
-                    name="nome"
-                    value={formData.nome}
-                    onChange={handleChange}
-                    className={`w-full bg-gray-900/50 border ${
-                      errors.nome ? 'border-red-500' : 'border-gray-700'
-                    } rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#e58840]/50 focus:border-transparent transition-colors`}
-                    placeholder="Ex: Pizza Calabresa"
-                    disabled={loading}
-                  />
-                  {errors.nome && (
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400">
+                      R$
+                    </span>
+                    <input
+                      type="text"
+                      value={preco}
+                      onChange={handlePrecoChange}
+                      className={`w-full bg-gray-900/50 border ${
+                        errors.preco ? 'border-red-500' : 'border-gray-700'
+                      } rounded-lg pl-10 pr-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#e58840]/50 focus:border-transparent transition-colors`}
+                      placeholder="0,00"
+                      disabled={loading}
+                    />
+                  </div>
+                  {errors.preco && (
                     <p className="mt-1 text-sm text-red-400 flex items-center gap-1">
                       <AlertCircle className="w-4 h-4" />
-                      {errors.nome}
+                      {errors.preco}
                     </p>
                   )}
                 </div>
 
-                {/* Descrição */}
+                {/* Categoria - VERSÃO SIMPLIFICADA */}
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Descrição
+                    Categoria *
                   </label>
-                  <textarea
-                    name="descricao"
-                    value={formData.descricao}
-                    onChange={handleChange}
-                    rows={3}
-                    className="w-full bg-gray-900/50 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#e58840]/50 focus:border-transparent transition-colors resize-none"
-                    placeholder="Descreva o produto (ingredientes, acompanhamentos, etc.)"
-                    disabled={loading}
-                  />
-                </div>
-              </div>
-
-              {/* Seção 2: Preço e Categoria */}
-              <div className="space-y-6">
-                <h4 className="text-lg font-semibold text-white border-b border-gray-700/50 pb-2">
-                  Preço e Categoria
-                </h4>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Preço */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Preço (R$) *
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400">
-                        R$
-                      </span>
-                      <input
-                        type="text"
-                        name="preco"
-                        value={formData.preco}
-                        onChange={handleChange}
-                        className={`w-full bg-gray-900/50 border ${
-                          errors.preco ? 'border-red-500' : 'border-gray-700'
-                        } rounded-lg pl-10 pr-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#e58840]/50 focus:border-transparent transition-colors`}
-                        placeholder="0,00"
-                        disabled={loading}
-                      />
-                    </div>
-                    {errors.preco && (
-                      <p className="mt-1 text-sm text-red-400 flex items-center gap-1">
-                        <AlertCircle className="w-4 h-4" />
-                        {errors.preco}
-                      </p>
-                    )}
-                    <p className="mt-2 text-sm text-gray-400">
-                      Valor exibido: R$ {formatPrice(formData.preco)}
+                  <div className="relative">
+                    <select
+                      value={categoriaId}
+                      onChange={handleCategoriaChange}
+                      className={`w-full bg-gray-900/50 border ${
+                        errors.categoria_id ? 'border-red-500' : 'border-gray-700'
+                      } rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#e58840]/50 focus:border-transparent transition-colors appearance-none`}
+                      disabled={loading}
+                    >
+                      <option value="">Selecione uma categoria</option>
+                      {categorias.map(categoria => (
+                        <option 
+                          key={categoria.id} 
+                          value={categoria.id}
+                        >
+                          {categoria.nome}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {errors.categoria_id && (
+                    <p className="mt-1 text-sm text-red-400 flex items-center gap-1">
+                      <AlertCircle className="w-4 h-4" />
+                      {errors.categoria_id}
                     </p>
-                  </div>
-
-                  {/* Categoria - CORRIGIDO */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Categoria *
-                    </label>
-                    <div className="relative">
-                      <select
-                        name="categoria_id"
-                        value={formData.categoria_id}
-                        onChange={handleSelectChange} // Usando função específica
-                        className={`w-full bg-gray-900/50 border ${
-                          errors.categoria_id ? 'border-red-500' : 'border-gray-700'
-                        } rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#e58840]/50 focus:border-transparent transition-colors appearance-none pr-10`}
-                        disabled={loading}
-                      >
-                        <option value="">Selecione uma categoria</option>
-                        {categorias.map(categoria => (
-                          <option 
-                            key={categoria.id} 
-                            value={categoria.id}
-                          >
-                            {categoria.nome}
-                          </option>
-                        ))}
-                      </select>
-                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </div>
-                    </div>
-                    {errors.categoria_id && (
-                      <p className="mt-1 text-sm text-red-400 flex items-center gap-1">
-                        <AlertCircle className="w-4 h-4" />
-                        {errors.categoria_id}
-                      </p>
-                    )}
-                    <div className="mt-2 text-sm text-gray-400">
-                      <p>Categoria selecionada: {
-                        categorias.find(c => c.id === formData.categoria_id)?.nome || 
-                        'Nenhuma'
-                      }</p>
-                      <p className="text-xs mt-1">Total de categorias: {categorias.length}</p>
-                    </div>
+                  )}
+                  {/* Feedback visual */}
+                  <div className="mt-2 text-sm">
+                    <span className={`px-2 py-1 rounded ${
+                      categoriaAtual 
+                        ? 'bg-green-900/30 text-green-400' 
+                        : 'bg-gray-900/30 text-gray-400'
+                    }`}>
+                      {categoriaAtual 
+                        ? `✅ ${categoriaAtual.nome}` 
+                        : '❌ Nenhuma categoria selecionada'}
+                    </span>
                   </div>
                 </div>
               </div>
 
-              {/* Seção 3: Imagem do Produto */}
-              <div className="space-y-6">
-                <h4 className="text-lg font-semibold text-white border-b border-gray-700/50 pb-2">
+              {/* Imagem */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
                   Imagem do Produto
-                </h4>
-                
+                </label>
                 <ImageUploader
                   onImageUploaded={handleImageUploaded}
-                  currentImage={formData.imagem_url}
+                  currentImage={imagem_url}
                   disabled={loading}
                 />
+              </div>
 
-                {/* Campo de URL para compatibilidade */}
+              {/* URL da imagem */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  URL da Imagem
+                </label>
+                <input
+                  type="text"
+                  value={imagem_url}
+                  onChange={(e) => setImagemUrl(e.target.value)}
+                  className="w-full bg-gray-900/50 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#e58840]/50 focus:border-transparent transition-colors"
+                  placeholder="https://exemplo.com/imagem.jpg"
+                  disabled={loading}
+                />
+              </div>
+
+              {/* Posição e Disponibilidade */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Ou cole uma URL da imagem:
+                    Posição
                   </label>
                   <input
-                    type="text"
-                    name="imagem_url"
-                    value={formData.imagem_url}
-                    onChange={handleChange}
-                    className="w-full bg-gray-900/50 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#e58840]/50 focus:border-transparent transition-colors"
-                    placeholder="https://exemplo.com/imagem.jpg"
+                    type="number"
+                    value={posicao}
+                    onChange={handlePosicaoChange}
+                    min="1"
+                    className="w-full bg-gray-900/50 border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#e58840]/50 focus:border-transparent transition-colors"
                     disabled={loading}
                   />
                 </div>
-              </div>
 
-              {/* Seção 4: Configurações */}
-              <div className="space-y-6">
-                <h4 className="text-lg font-semibold text-white border-b border-gray-700/50 pb-2">
-                  Configurações
-                </h4>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Posição */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Posição no Cardápio
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Disponibilidade
+                  </label>
+                  <div className="flex items-center h-12">
+                    <label className="flex items-center cursor-pointer">
+                      <div className="relative">
+                        <input
+                          type="checkbox"
+                          checked={disponivel}
+                          onChange={handleDisponivelChange}
+                          className="sr-only"
+                          disabled={loading}
+                        />
+                        <div className={`block w-14 h-8 rounded-full ${
+                          disponivel ? 'bg-green-600' : 'bg-gray-700'
+                        }`}></div>
+                        <div className={`absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${
+                          disponivel ? 'transform translate-x-6' : ''
+                        }`}></div>
+                      </div>
+                      <span className="ml-3 text-gray-300">
+                        {disponivel ? 'Disponível' : 'Indisponível'}
+                      </span>
                     </label>
-                    <input
-                      type="number"
-                      name="posicao"
-                      value={formData.posicao}
-                      onChange={handleChange}
-                      min="1"
-                      className="w-full bg-gray-900/50 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#e58840]/50 focus:border-transparent transition-colors"
-                      disabled={loading}
-                    />
-                    <p className="mt-2 text-sm text-gray-400">
-                      Número que define a ordem no cardápio (menor = primeiro)
-                    </p>
-                  </div>
-
-                  {/* Disponibilidade */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Status do Produto
-                    </label>
-                    <div className="flex items-center h-12">
-                      <label className="flex items-center cursor-pointer">
-                        <div className="relative">
-                          <input
-                            type="checkbox"
-                            name="disponivel"
-                            checked={formData.disponivel}
-                            onChange={handleChange}
-                            className="sr-only"
-                            disabled={loading}
-                          />
-                          <div className={`block w-14 h-8 rounded-full ${
-                            formData.disponivel ? 'bg-green-600' : 'bg-gray-700'
-                          } transition-colors`}></div>
-                          <div className={`absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${
-                            formData.disponivel ? 'transform translate-x-6' : ''
-                          }`}></div>
-                        </div>
-                        <div className="ml-3">
-                          <span className={`font-medium ${
-                            formData.disponivel ? 'text-green-400' : 'text-gray-400'
-                          }`}>
-                            {formData.disponivel ? 'Disponível' : 'Indisponível'}
-                          </span>
-                          <p className="text-sm text-gray-500">
-                            {formData.disponivel ? 'Visível no cardápio' : 'Oculto do cardápio'}
-                          </p>
-                        </div>
-                      </label>
-                    </div>
                   </div>
                 </div>
               </div>
@@ -475,14 +382,14 @@ const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
                   type="button"
                   onClick={onClose}
                   disabled={loading}
-                  className="flex-1 px-6 py-3 border border-gray-600 text-gray-300 hover:bg-gray-700/50 rounded-lg transition-colors disabled:opacity-50"
+                  className="flex-1 px-6 py-3 border border-gray-600 text-gray-300 hover:bg-gray-700/50 rounded-lg transition-colors"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex-1 px-6 py-3 bg-gradient-to-r from-[#e58840] to-[#e58840]/90 hover:from-[#e58840]/90 hover:to-[#e58840] text-[#400b0b] font-bold rounded-lg transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 px-6 py-3 bg-gradient-to-r from-[#e58840] to-[#e58840]/90 hover:from-[#e58840]/90 hover:to-[#e58840] text-[#400b0b] font-bold rounded-lg transition-all duration-300 flex items-center justify-center gap-2"
                 >
                   {loading ? (
                     <>
