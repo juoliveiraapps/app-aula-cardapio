@@ -12,6 +12,19 @@ const AdminCardapio = () => {
   const [editingProduct, setEditingProduct] = useState<Produto | null>(null);
   const [processing, setProcessing] = useState(false);
 
+  const categorias = categoriasRaw.map(cat => ({
+    id: cat.categoria_id,      // ← Mapeia categoria_id para id
+    nome: cat.nome || '',
+    descricao: cat.descricao || '',
+    posicao: cat.posicao || 1,
+    visivel: cat.visivel !== false,
+    icone_svg: cat.icone_svg || ''
+  }));
+
+  console.log('🔍 Categorias da API (raw):', categoriasRaw);
+  console.log('🔧 Categorias transformadas:', categorias);
+  
+  const [showForm, setShowForm] = useState(false);
   // Converter produtos para o formato do ProductList
   const produtos = produtosData.map(prod => ({
     id: prod.id || '',
