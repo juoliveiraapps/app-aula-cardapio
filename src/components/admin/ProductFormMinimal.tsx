@@ -84,26 +84,32 @@ const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!validateForm()) {
-      return;
-    }
-    
-    const productData = {
-      ...formData,
-      preco: Number(formData.preco),
-      id: initialData?.id || '',
-      opcoes: initialData?.opcoes || []
-    };
-    
-    console.log('📤 Enviando dados do produto:', productData);
-    
-    const success = await onSubmit(productData);
-    if (success) {
-      onClose();
-    }
+  e.preventDefault();
+  console.log('🔄 handleSubmit chamado');
+  console.log('📊 Dados do formulário:', formData);
+  console.log('⏳ Estado loading:', loading);
+  
+  if (!validateForm()) {
+    console.log('❌ Validação falhou');
+    return;
+  }
+  
+  const productData = {
+    ...formData,
+    preco: Number(formData.preco),
+    id: initialData?.id || '',
+    opcoes: initialData?.opcoes || []
   };
+  
+  console.log('📤 Dados preparados para envio:', productData);
+  
+  const success = await onSubmit(productData);
+  console.log('✅ Resultado do onSubmit:', success);
+  
+  if (success) {
+    onClose();
+  }
+};
 
   // Se não houver categorias
   if (categorias.length === 0) {
