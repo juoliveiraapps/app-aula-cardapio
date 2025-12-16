@@ -1,5 +1,5 @@
 // ProductFormMinimal.tsx
-import React from 'react';
+import React, { useEffect } from 'react';
 import { X } from 'lucide-react';
 
 interface ProductFormMinimalProps {
@@ -16,19 +16,28 @@ const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
 }) => {
   console.log('✅ ProductFormMinimal RENDERIZADO!');
 
+  // Impedir rolagem da página quando o modal estiver aberto
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, []);
+
   return (
-    <>
-      {/* Overlay com z-index alto */}
+    <div className="fixed inset-0 z-[9999]">
+      {/* Overlay */}
       <div 
-        className="fixed inset-0 bg-black/70 z-[9998]"
+        className="absolute inset-0 bg-black/70"
         onClick={onClose}
       />
       
-      {/* Modal com z-index mais alto */}
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+      {/* Container do modal */}
+      <div className="absolute inset-0 flex items-center justify-center p-4">
+        {/* Conteúdo do modal */}
         <div className="relative bg-gray-800 rounded-2xl border border-gray-700/50 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
           {/* Cabeçalho */}
-          <div className="sticky top-0 bg-gray-800 border-b border-gray-700/50 px-6 py-4">
+          <div className="sticky top-0 bg-gray-800 border-b border-gray-700/50 px-6 py-4 z-10">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-xl font-bold text-white">Novo Produto - MINIMAL</h3>
@@ -61,6 +70,15 @@ const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
                 </ul>
               </div>
 
+              <div className="space-y-3">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className="bg-gray-900/30 p-3 rounded-lg">
+                    <p className="text-gray-300">Linha de teste {i + 1}</p>
+                    <p className="text-xs text-gray-400">Para demonstrar rolagem do modal</p>
+                  </div>
+                ))}
+              </div>
+
               <button
                 onClick={onClose}
                 disabled={loading}
@@ -72,7 +90,7 @@ const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 };
 
