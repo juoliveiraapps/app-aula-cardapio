@@ -21,8 +21,7 @@ const AdminCardapio = () => {
     icone_svg: cat.icone_svg || ''
   }));
 
-  console.log('🔍 Categorias da API (raw):', categoriasRaw);
-  console.log('🔧 Categorias transformadas:', categorias);
+  
   
   const [showForm, setShowForm] = useState(false);
   // Converter produtos para o formato do ProductList
