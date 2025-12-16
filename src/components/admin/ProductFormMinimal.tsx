@@ -202,24 +202,7 @@ const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
                       ))}
                     </select>
                     
-                    <div className="mt-3">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (categorias[0]?.categoria_id) {
-                            console.log('🔧 Forçando seleção:', categorias[0].categoria_id);
-                            setFormData(prev => ({ 
-                              ...prev, 
-                              categoria_id: categorias[0].categoria_id 
-                            }));
-                          }
-                        }}
-                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors"
-                      >
-                        Selecionar Primeira Categoria (Teste)
-                      </button>
-                    </div>
-                    
+                  
                     {errors.categoria_id && (
                       <p className="mt-1 text-sm text-red-400 flex items-center gap-1">
                         <AlertCircle className="w-4 h-4" />
