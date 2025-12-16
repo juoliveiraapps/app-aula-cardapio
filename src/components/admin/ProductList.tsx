@@ -48,6 +48,13 @@ const ProductList: React.FC<ProductListProps> = ({
     }).format(price);
   };
 
+  // Formatar acréscimo - CORREÇÃO AQUI
+  const formatAcrescimo = (acrescimo: any) => {
+    const valor = parseFloat(acrescimo);
+    if (isNaN(valor) || valor <= 0) return '';
+    return `+R$ ${valor.toFixed(2)}`;
+  };
+
   // Filtrar produtos
   const filteredProdutos = produtos.filter(produto => {
     // Filtro por busca
@@ -186,14 +193,13 @@ const ProductList: React.FC<ProductListProps> = ({
 
       {/* Lista de Produtos */}
       <div className="space-y-3">
-   {filteredProdutos.map((produto, index) => {
-  const categoria = categorias.find(c => c.id === produto.categoria_id);
-  // Use index como fallback se id for vazio
-    const uniqueKey = produto.id || `produto-${index}-${Date.now()}`;
-  
-  return (
-    <div
-      key={uniqueKey} // ⬅️ CORRIGIDO
+        {filteredProdutos.map((produto, index) => {
+          const categoria = categorias.find(c => c.id === produto.categoria_id);
+          const uniqueKey = produto.id || `produto-${index}-${Date.now()}`;
+          
+          return (
+            <div
+              key={uniqueKey}
               className={`bg-gray-800/50 rounded-xl border p-4 hover:border-[#e58840]/30 transition-all duration-300 ${
                 !produto.disponivel 
                   ? 'opacity-70 border-gray-700/50' 
@@ -221,7 +227,7 @@ const ProductList: React.FC<ProductListProps> = ({
                 {/* Informações */}
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-2">
-                    <div>
+                    <div className="flex-1">
                       <div className="flex items-center flex-wrap gap-2">
                         <h4 className="text-lg font-bold text-white truncate">
                           {produto.nome}
@@ -235,31 +241,8 @@ const ProductList: React.FC<ProductListProps> = ({
                               Indisponível
                             </span>
                           )}
-                          
-                         {produto.opcoes && produto.opcoes.length > 0 && (
-                                <div className="mt-3 space-y-2">
-                                  <p className="text-xs text-gray-400 font-medium">Opções:</p>
-                                  <div className="space-y-1">
-                                    {produto.opcoes.map((grupo: any) => (
-                                      <div key={grupo.id} className="text-xs">
-                                        <span className="text-gray-300">{grupo.rotulo}:</span>
-                                        <div className="ml-2 mt-1 space-y-1">
-                                          {grupo.opcoes.map((opcao: any) => (
-                                            <div key={opcao.id} className="flex items-center justify-between">
-                                              <span className="text-gray-400">{opcao.rotulo}</span>
-                                              {opcao.acrescimo > 0 && (
-                                                <span className="text-[#e58840] font-medium">
-                                                  +R$ {Number(opcao.acrescimo || 0).toFixed(2)}
-                                                </span>
-                                              )}
-                                            </div>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
+                        </div>
+                      </div>
                       
                       {/* Preço e Categoria */}
                       <div className="flex items-center gap-4 mt-2">
@@ -279,6 +262,35 @@ const ProductList: React.FC<ProductListProps> = ({
                         <p className="text-gray-400 text-sm mt-2 line-clamp-2">
                           {produto.descricao}
                         </p>
+                      )}
+                      
+                      {/* Opções do produto */}
+                      {produto.opcoes && produto.opcoes.length > 0 && (
+                        <div className="mt-3 space-y-2">
+                          <p className="text-xs text-gray-400 font-medium">Opções:</p>
+                          <div className="space-y-1">
+                            {produto.opcoes.map((grupo: any) => (
+                              <div key={grupo.id} className="text-xs">
+                                <span className="text-gray-300">{grupo.rotulo}:</span>
+                                <div className="ml-2 mt-1 space-y-1">
+                                  {grupo.opcoes.map((opcao: any) => {
+                                    const acrescimoFormatado = formatAcrescimo(opcao.acrescimo);
+                                    return (
+                                      <div key={opcao.id} className="flex items-center justify-between">
+                                        <span className="text-gray-400">{opcao.rotulo}</span>
+                                        {acrescimoFormatado && (
+                                          <span className="text-[#e58840] font-medium">
+                                            {acrescimoFormatado}
+                                          </span>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
                       )}
                       
                       {/* Metadados */}
@@ -326,22 +338,22 @@ const ProductList: React.FC<ProductListProps> = ({
                 </div>
               </div>
               
-              {/* Opções do produto (se houver) */}
+              {/* Opções do produto (se houver) - Versão alternativa para o rodapé */}
               {produto.opcoes && produto.opcoes.length > 0 && (
                 <div className="mt-4 pt-4 border-t border-gray-700/30">
                   <h5 className="text-sm font-medium text-gray-300 mb-2">Opções disponíveis:</h5>
                   <div className="flex flex-wrap gap-2">
-                    {produto.opcoes.slice(0, 3).map((opcao, idx) => (
+                    {produto.opcoes.slice(0, 3).map((grupo: any, idx) => (
                       <span
                         key={idx}
                         className="text-xs px-2 py-1 bg-gray-900/50 rounded text-gray-300"
                       >
-                        {opcao.nome} (+{formatPrice(opcao.preco)})
+                        {grupo.rotulo} ({grupo.opcoes.length} opções)
                       </span>
                     ))}
                     {produto.opcoes.length > 3 && (
                       <span className="text-xs px-2 py-1 bg-gray-800 rounded text-gray-400">
-                        +{produto.opcoes.length - 3} mais...
+                        +{produto.opcoes.length - 3} grupos...
                       </span>
                     )}
                   </div>
