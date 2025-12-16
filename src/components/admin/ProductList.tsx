@@ -236,13 +236,30 @@ const ProductList: React.FC<ProductListProps> = ({
                             </span>
                           )}
                           
-                          {produto.opcoes && produto.opcoes.length > 0 && (
-                            <span className="text-xs px-2 py-1 bg-purple-900/30 text-purple-400 rounded">
-                              +{produto.opcoes.length} opções
-                            </span>
-                          )}
-                        </div>
-                      </div>
+                         {produto.opcoes && produto.opcoes.length > 0 && (
+  <div className="mt-3 space-y-2">
+    <p className="text-xs text-gray-400 font-medium">Opções:</p>
+    <div className="space-y-1">
+      {produto.opcoes.map((grupo: any) => (
+        <div key={grupo.id} className="text-xs">
+          <span className="text-gray-300">{grupo.rotulo}:</span>
+          <div className="ml-2 mt-1 space-y-1">
+            {grupo.opcoes.map((opcao: any) => (
+              <div key={opcao.id} className="flex items-center justify-between">
+                <span className="text-gray-400">{opcao.rotulo}</span>
+                {opcao.acrescimo > 0 && (
+                  <span className="text-[#e58840] font-medium">
+                    +R$ {Number(opcao.acrescimo || 0).toFixed(2)}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
                       
                       {/* Preço e Categoria */}
                       <div className="flex items-center gap-4 mt-2">
