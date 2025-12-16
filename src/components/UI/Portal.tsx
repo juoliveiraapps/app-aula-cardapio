@@ -1,5 +1,5 @@
 // Portal.tsx
-import { useEffect, useRef, ReactNode } from 'react';
+import { useEffect, useState, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
 interface PortalProps {
@@ -7,28 +7,27 @@ interface PortalProps {
 }
 
 export const Portal: React.FC<PortalProps> = ({ children }) => {
-  const portalRoot = useRef<HTMLDivElement | null>(null);
+  const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
-    // Verificar se já existe um portal-root
-    let existingPortal = document.getElementById('portal-root');
-    if (existingPortal) {
-      portalRoot.current = existingPortal as HTMLDivElement;
-    } else {
-      portalRoot.current = document.createElement('div');
-      portalRoot.current.id = 'portal-root';
-      document.body.appendChild(portalRoot.current);
+    // Criar ou reutilizar o container do portal
+    let container = document.getElementById('portal-root');
+    
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'portal-root';
+      document.body.appendChild(container);
     }
+    
+    setPortalContainer(container);
 
+    // Não remover o container no cleanup, apenas gerenciamos o conteúdo
     return () => {
-      // Não remover o elemento, apenas limpá-lo
-      if (portalRoot.current) {
-        portalRoot.current.innerHTML = '';
-      }
+      // O container permanece no DOM para reutilização
     };
   }, []);
 
-  if (!portalRoot.current) return null;
+  if (!portalContainer) return null;
 
-  return createPortal(children, portalRoot.current);
+  return createPortal(children, portalContainer);
 };
