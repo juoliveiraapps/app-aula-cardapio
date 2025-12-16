@@ -17,20 +17,18 @@ const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
   console.log('✅ ProductFormMinimal RENDERIZADO!');
 
   return (
-    <div className="fixed inset-0 z-[9999] overflow-y-auto">
-      {/* Overlay */}
+    <>
+      {/* Overlay com z-index alto */}
       <div 
-        className="fixed inset-0 bg-black/70 transition-opacity"
+        className="fixed inset-0 bg-black/70 z-[9998]"
         onClick={onClose}
-        aria-hidden="true"
       />
       
-      {/* Container centralizado */}
-      <div className="flex min-h-full items-center justify-center p-4 text-center">
-        {/* Modal - Ocupa altura máxima disponível */}
-        <div className="relative bg-gray-800 rounded-2xl border border-gray-700/50 w-full max-w-2xl max-h-[90vh] overflow-hidden z-[10000]">
-          {/* Cabeçalho fixo */}
-          <div className="sticky top-0 bg-gray-800 border-b border-gray-700/50 px-6 py-4 z-10">
+      {/* Modal com z-index mais alto */}
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+        <div className="relative bg-gray-800 rounded-2xl border border-gray-700/50 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          {/* Cabeçalho */}
+          <div className="sticky top-0 bg-gray-800 border-b border-gray-700/50 px-6 py-4">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-xl font-bold text-white">Novo Produto - MINIMAL</h3>
@@ -46,8 +44,8 @@ const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
             </div>
           </div>
 
-          {/* Conteúdo rolável */}
-          <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
+          {/* Conteúdo */}
+          <div className="p-6">
             <div className="space-y-4">
               <p className="text-gray-300">
                 Se você vê isso, o modal funciona! O problema está no ProductForm original.
@@ -63,16 +61,6 @@ const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
                 </ul>
               </div>
 
-              {/* Conteúdo adicional para testar rolagem */}
-              <div className="space-y-4">
-                {Array.from({ length: 10 }).map((_, i) => (
-                  <div key={i} className="bg-gray-900/30 p-4 rounded-lg">
-                    <p className="text-gray-300">Item de teste {i + 1}</p>
-                    <p className="text-sm text-gray-400">Para demonstrar rolagem do modal</p>
-                  </div>
-                ))}
-              </div>
-
               <button
                 onClick={onClose}
                 disabled={loading}
@@ -84,7 +72,7 @@ const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 
