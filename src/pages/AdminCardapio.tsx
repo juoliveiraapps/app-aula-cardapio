@@ -31,13 +31,13 @@ const AdminCardapio = () => {
       setProcessing(true);
       console.log('📝 Salvando produto:', productData);
       
-      const data = await saveProductToSheet(productData);
+      // Simular salvamento para testar
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      console.log('✅ Produto salvo com sucesso (SIMULAÇÃO)!');
+      alert('Produto salvo com sucesso! (MODO TESTE)');
       
-      console.log('✅ Produto salvo com sucesso:', data);
-      alert(data.message || 'Produto salvo com sucesso!');
-      
-      // Recarregar a página para atualizar os dados
-      window.location.reload();
+      // Fechar modal após salvar
+      setShowForm(false);
       return true;
       
     } catch (err: any) {
@@ -63,7 +63,6 @@ const AdminCardapio = () => {
       console.log('✅ Produto deletado com sucesso:', data);
       alert(data.message || 'Produto deletado com sucesso!');
       
-      // Recarregar a página para atualizar os dados
       window.location.reload();
       
     } catch (err: any) {
@@ -75,11 +74,13 @@ const AdminCardapio = () => {
   };
 
   const handleNewProduct = () => {
+    console.log('🆕 Abrindo modal de novo produto');
     setEditingProduct(null);
     setShowForm(true);
   };
 
   const handleEditProduct = (product: any) => {
+    console.log('✏️ Editando produto:', product);
     setEditingProduct(product);
     setShowForm(true);
   };
@@ -90,7 +91,7 @@ const AdminCardapio = () => {
 
   return (
     <>
-      {/* Conteúdo principal */}
+      {/* Conteúdo principal da página */}
       <div className="space-y-6">
         {/* Cabeçalho */}
         <div className="flex items-center justify-between">
@@ -170,13 +171,14 @@ const AdminCardapio = () => {
         />
       </div>
 
-      {/* Modal do Formulário - FORA do container principal */}
+      {/* Modal - FORA do container principal, no nível mais alto */}
       {showForm && (
         <ProductFormMinimal
           initialData={editingProduct || undefined}
           categorias={categorias}
           onSubmit={handleSaveProduct}
           onClose={() => {
+            console.log('🔒 Fechando modal');
             setShowForm(false);
             setEditingProduct(null);
           }}
