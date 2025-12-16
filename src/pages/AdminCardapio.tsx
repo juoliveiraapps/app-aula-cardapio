@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Plus, RefreshCw } from 'lucide-react';
 import { useCardapioData } from '../hooks/useCardapioData';
 import { Produto } from '../types';
@@ -11,7 +11,6 @@ const AdminCardapio = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Produto | null>(null);
   const [processing, setProcessing] = useState(false);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Converter produtos para o formato do ProductList
   const produtos = produtosData.map(prod => ({
@@ -28,36 +27,60 @@ const AdminCardapio = () => {
   }));
 
   const handleSaveProduct = async (productData: any): Promise<boolean> => {
+    console.log('📝 Iniciando salvamento do produto:', productData);
+    
     try {
       setProcessing(true);
-      console.log('📝 Salvando produto:', productData);
+      console.log('🔄 Estado processing definido como true');
       
-      const data = await saveProductToSheet(productData);
+      // Preparar os dados para envio
+      const dataToSend = {
+        ...productData,
+        // Garantir que o preço seja número
+        preco: typeof productData.preco === 'string' 
+          ? parseFloat(productData.preco.replace(',', '.')) 
+          : productData.preco,
+        // Converter disponível para string "true"/"false"
+        disponivel: productData.disponivel ? 'TRUE' : 'FALSE',
+        // Garantir que tenha ID se for edição
+        id: productData.id || '',
+      };
       
-      console.log('✅ Produto salvo com sucesso:', data);
+      console.log('📤 Enviando dados para a planilha:', dataToSend);
       
-      // Fechar o modal primeiro
-      setShowForm(false);
-      setEditingProduct(null);
+      const response = await saveProductToSheet(dataToSend);
       
-      // Mostrar mensagem de sucesso
-      alert(data.message || 'Produto salvo com sucesso!');
+      console.log('✅ Resposta do salvamento:', response);
       
-      // Disparar recarregamento dos dados sem recarregar a página
-      setTimeout(() => {
-        setRefreshTrigger(prev => prev + 1);
-      }, 500);
-      
-      return true;
+      if (response.success) {
+        alert(response.message || '✅ Produto salvo com sucesso!');
+        
+        // Fechar o modal
+        setShowForm(false);
+        setEditingProduct(null);
+        
+        // Recarregar os dados
+        if (refetch) {
+          console.log('🔄 Recarregando dados via refetch');
+          await refetch();
+        } else {
+          console.log('🔄 Recarregando página');
+          setTimeout(() => {
+            window.location.reload();
+          }, 500);
+        }
+        
+        return true;
+      } else {
+        throw new Error(response.message || 'Erro ao salvar produto');
+      }
       
     } catch (err: any) {
       console.error('❌ Erro ao salvar produto:', err);
-      
-      // Manter o modal aberto em caso de erro para correção
-      alert(`Erro: ${err.message || 'Erro desconhecido'}`);
-      
+      alert(`❌ Erro: ${err.message || 'Erro desconhecido ao salvar produto'}`);
       return false;
     } finally {
+      console.log('🏁 Finalizando, definindo processing como false');
       setProcessing(false);
     }
   };
@@ -71,20 +94,28 @@ const AdminCardapio = () => {
       setProcessing(true);
       console.log('🗑️ Deletando produto ID:', id);
       
-      const data = await deleteProductFromSheet(id);
+      const response = await deleteProductFromSheet(id);
       
-      console.log('✅ Produto deletado com sucesso:', data);
+      console.log('✅ Resposta da exclusão:', response);
       
-      alert(data.message || 'Produto deletado com sucesso!');
-      
-      // Disparar recarregamento dos dados sem recarregar a página
-      setTimeout(() => {
-        setRefreshTrigger(prev => prev + 1);
-      }, 500);
+      if (response.success) {
+        alert(response.message || '✅ Produto deletado com sucesso!');
+        
+        // Recarregar os dados
+        if (refetch) {
+          await refetch();
+        } else {
+          setTimeout(() => {
+            window.location.reload();
+          }, 500);
+        }
+      } else {
+        throw new Error(response.message || 'Erro ao deletar produto');
+      }
       
     } catch (err: any) {
       console.error('❌ Erro ao deletar produto:', err);
-      alert(`Erro: ${err.message || 'Erro desconhecido'}`);
+      alert(`❌ Erro: ${err.message || 'Erro desconhecido ao deletar produto'}`);
     } finally {
       setProcessing(false);
     }
@@ -92,15 +123,8 @@ const AdminCardapio = () => {
 
   const handleNewProduct = () => {
     console.log('🆕 Abrindo modal de novo produto');
-    console.log('Estado atual - showForm:', showForm, 'editingProduct:', editingProduct);
-    
-    // Resetar estado antes de abrir
     setEditingProduct(null);
-    
-    // Forçar uma nova renderização
-    setTimeout(() => {
-      setShowForm(true);
-    }, 0);
+    setShowForm(true);
   };
 
   const handleEditProduct = (product: any) => {
@@ -110,18 +134,12 @@ const AdminCardapio = () => {
   };
 
   const refreshProducts = () => {
-    // Usar refetch se disponível, ou recarregar a página
     if (refetch) {
       refetch();
     } else {
       window.location.reload();
     }
   };
-
-  // Adicionar um efeito para debug
-  useEffect(() => {
-    console.log('🔄 Estado atualizado - showForm:', showForm, 'processing:', processing);
-  }, [showForm, processing]);
 
   return (
     <>
@@ -205,10 +223,10 @@ const AdminCardapio = () => {
         />
       </div>
 
-      {/* Modal - Sempre renderizado, controlado por CSS */}
+      {/* Modal */}
       {showForm && (
         <ProductFormMinimal
-          key={editingProduct?.id || 'new'} // Key importante para resetar o formulário
+          key={editingProduct?.id || 'new'}
           initialData={editingProduct || undefined}
           categorias={categorias}
           onSubmit={handleSaveProduct}
