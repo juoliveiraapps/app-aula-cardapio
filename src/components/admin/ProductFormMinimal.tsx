@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { X } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { X, Upload, Check, AlertCircle } from 'lucide-react';
 import { Portal } from '../UI/Portal';
 
 interface ProductFormMinimalProps {
@@ -11,10 +11,25 @@ interface ProductFormMinimalProps {
 }
 
 const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
+  initialData,
+  categorias,
+  onSubmit,
   onClose,
   loading = false
 }) => {
-  console.log('✅ ProductFormMinimal RENDERIZADO!');
+  console.log('✅ ProductFormMinimal RENDERIZADO com dados:', { initialData, categorias });
+
+  const [formData, setFormData] = useState({
+    nome: initialData?.nome || '',
+    descricao: initialData?.descricao || '',
+    preco: initialData?.preco ? Number(initialData.preco) : '',
+    categoria_id: initialData?.categoria_id || (categorias[0]?.id || ''),
+    disponivel: initialData?.disponivel !== false,
+    posicao: initialData?.posicao || 1,
+    imagem_url: initialData?.imagem_url || ''
+  });
+
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Impedir rolagem da página quando o modal estiver aberto
   useEffect(() => {
@@ -23,6 +38,97 @@ const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
       document.body.style.overflow = 'unset';
     };
   }, []);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target;
+    
+    if (type === 'checkbox') {
+      const checked = (e.target as HTMLInputElement).checked;
+      setFormData(prev => ({ ...prev, [name]: checked }));
+    } else if (name === 'preco') {
+      // Permitir apenas números e ponto decimal
+      const sanitizedValue = value.replace(/[^\d.]/g, '');
+      setFormData(prev => ({ ...prev, [name]: sanitizedValue }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
+    
+    // Limpar erro ao digitar
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  const validateForm = (): boolean => {
+    const newErrors: Record<string, string> = {};
+    
+    if (!formData.nome.trim()) {
+      newErrors.nome = 'Nome do produto é obrigatório';
+    }
+    
+    if (!formData.categoria_id) {
+      newErrors.categoria_id = 'Selecione uma categoria';
+    }
+    
+    if (!formData.preco || Number(formData.preco) <= 0) {
+      newErrors.preco = 'Preço deve ser maior que zero';
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+    
+    const productData = {
+      ...formData,
+      preco: Number(formData.preco),
+      id: initialData?.id || '', // Se tiver ID, é edição
+      opcoes: initialData?.opcoes || [] // Manter opções se existirem
+    };
+    
+    console.log('📤 Enviando dados do produto:', productData);
+    
+    const success = await onSubmit(productData);
+    if (success) {
+      onClose();
+    }
+  };
+
+  // Se não houver categorias, mostrar mensagem
+  if (categorias.length === 0) {
+    return (
+      <Portal>
+        <div className="fixed inset-0 z-[9999]">
+          <div className="absolute inset-0 bg-black/70" onClick={onClose} />
+          <div className="absolute inset-0 flex items-center justify-center p-4">
+            <div className="relative bg-gray-800 rounded-2xl border border-gray-700/50 w-full max-w-md p-6">
+              <div className="text-center space-y-4">
+                <div className="w-12 h-12 bg-yellow-900/30 rounded-full flex items-center justify-center mx-auto">
+                  <AlertCircle className="w-6 h-6 text-yellow-400" />
+                </div>
+                <h3 className="text-xl font-bold text-white">Crie categorias primeiro</h3>
+                <p className="text-gray-300">
+                  Você precisa criar pelo menos uma categoria antes de adicionar produtos.
+                </p>
+                <button
+                  onClick={onClose}
+                  className="w-full bg-gradient-to-r from-[#e58840] to-[#e58840]/90 hover:from-[#e58840]/90 hover:to-[#e58840] text-[#400b0b] font-bold py-3 px-4 rounded-lg transition-all duration-300"
+                >
+                  Entendi
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Portal>
+    );
+  }
 
   return (
     <Portal>
@@ -41,8 +147,12 @@ const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
             <div className="sticky top-0 bg-gray-800 border-b border-gray-700/50 px-6 py-4 z-10">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-xl font-bold text-white">Novo Produto - MINIMAL</h3>
-                  <p className="text-gray-400 text-sm">Modal funcional de teste</p>
+                  <h3 className="text-xl font-bold text-white">
+                    {initialData ? 'Editar Produto' : 'Novo Produto'}
+                  </h3>
+                  <p className="text-gray-400 text-sm">
+                    {initialData ? 'Atualize as informações do produto' : 'Preencha os dados do novo produto'}
+                  </p>
                 </div>
                 <button
                   onClick={onClose}
@@ -54,41 +164,250 @@ const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
               </div>
             </div>
 
-            {/* Conteúdo */}
-            <div className="p-6">
-              <div className="space-y-4">
-                <p className="text-gray-300">
-                  Se você vê isso, o modal funciona! O problema está no ProductForm original.
+            {/* Formulário */}
+            <form onSubmit={handleSubmit} className="p-6 space-y-6">
+              {/* Nome do Produto */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Nome do Produto *
+                </label>
+                <input
+                  type="text"
+                  name="nome"
+                  value={formData.nome}
+                  onChange={handleChange}
+                  className={`w-full bg-gray-900/50 border ${
+                    errors.nome ? 'border-red-500' : 'border-gray-700'
+                  } rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#e58840]/50 focus:border-transparent transition-colors`}
+                  placeholder="Ex: Pizza Calabresa"
+                  disabled={loading}
+                />
+                {errors.nome && (
+                  <p className="mt-1 text-sm text-red-400 flex items-center gap-1">
+                    <AlertCircle className="w-4 h-4" />
+                    {errors.nome}
+                  </p>
+                )}
+              </div>
+
+              {/* Descrição */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Descrição
+                </label>
+                <textarea
+                  name="descricao"
+                  value={formData.descricao}
+                  onChange={handleChange}
+                  rows={3}
+                  className="w-full bg-gray-900/50 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#e58840]/50 focus:border-transparent transition-colors resize-none"
+                  placeholder="Descreva o produto..."
+                  disabled={loading}
+                />
+              </div>
+
+              {/* Preço e Categoria */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Preço */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Preço (R$) *
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400">
+                      R$
+                    </span>
+                    <input
+                      type="text"
+                      name="preco"
+                      value={formData.preco}
+                      onChange={handleChange}
+                      className={`w-full bg-gray-900/50 border ${
+                        errors.preco ? 'border-red-500' : 'border-gray-700'
+                      } rounded-lg pl-10 pr-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#e58840]/50 focus:border-transparent transition-colors`}
+                      placeholder="0,00"
+                      disabled={loading}
+                    />
+                  </div>
+                  {errors.preco && (
+                    <p className="mt-1 text-sm text-red-400 flex items-center gap-1">
+                      <AlertCircle className="w-4 h-4" />
+                      {errors.preco}
+                    </p>
+                  )}
+                </div>
+
+                {/* Categoria */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Categoria *
+                  </label>
+                  <select
+                    name="categoria_id"
+                    value={formData.categoria_id}
+                    onChange={handleChange}
+                    className={`w-full bg-gray-900/50 border ${
+                      errors.categoria_id ? 'border-red-500' : 'border-gray-700'
+                    } rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#e58840]/50 focus:border-transparent transition-colors appearance-none`}
+                    disabled={loading}
+                  >
+                    <option value="">Selecione uma categoria</option>
+                    {categorias.map(categoria => (
+                      <option key={categoria.id} value={categoria.id}>
+                        {categoria.nome}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.categoria_id && (
+                    <p className="mt-1 text-sm text-red-400 flex items-center gap-1">
+                      <AlertCircle className="w-4 h-4" />
+                      {errors.categoria_id}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* URL da Imagem */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  URL da Imagem
+                </label>
+                <div className="flex items-center gap-3">
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      name="imagem_url"
+                      value={formData.imagem_url}
+                      onChange={handleChange}
+                      className="w-full bg-gray-900/50 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#e58840]/50 focus:border-transparent transition-colors"
+                      placeholder="https://exemplo.com/imagem.jpg"
+                      disabled={loading}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="flex items-center gap-2 px-4 py-3 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors disabled:opacity-50"
+                    disabled={loading}
+                    title="Upload de imagem (em breve)"
+                  >
+                    <Upload className="w-4 h-4" />
+                    <span className="hidden sm:inline">Upload</span>
+                  </button>
+                </div>
+                <p className="mt-2 text-sm text-gray-400">
+                  Cole a URL de uma imagem ou deixe em branco para usar a imagem padrão
                 </p>
+              </div>
 
-                <div className="bg-gray-900/50 p-4 rounded-lg">
-                  <p className="text-sm text-gray-400">Problemas comuns:</p>
-                  <ul className="text-sm text-gray-300 mt-2 space-y-1">
-                    <li>• Importação incorreta do ImageUploader</li>
-                    <li>• Erro no TypeScript</li>
-                    <li>• Estilos conflitantes</li>
-                    <li>• Componente quebrado</li>
-                  </ul>
+              {/* Posição e Disponibilidade */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Posição */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Posição no Cardápio
+                  </label>
+                  <input
+                    type="number"
+                    name="posicao"
+                    value={formData.posicao}
+                    onChange={handleChange}
+                    min="1"
+                    className="w-full bg-gray-900/50 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#e58840]/50 focus:border-transparent transition-colors"
+                    disabled={loading}
+                  />
+                  <p className="mt-2 text-sm text-gray-400">
+                    Número que define a ordem no cardápio (menor = primeiro)
+                  </p>
                 </div>
 
-                <div className="space-y-3">
-                  {Array.from({ length: 8 }).map((_, i) => (
-                    <div key={i} className="bg-gray-900/30 p-3 rounded-lg">
-                      <p className="text-gray-300">Linha de teste {i + 1}</p>
-                      <p className="text-xs text-gray-400">Para demonstrar rolagem do modal</p>
+                {/* Disponibilidade */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Status
+                  </label>
+                  <div className="flex items-center h-12">
+                    <label className="flex items-center cursor-pointer">
+                      <div className="relative">
+                        <input
+                          type="checkbox"
+                          name="disponivel"
+                          checked={formData.disponivel}
+                          onChange={handleChange}
+                          className="sr-only"
+                          disabled={loading}
+                        />
+                        <div className={`block w-14 h-8 rounded-full ${
+                          formData.disponivel ? 'bg-green-600' : 'bg-gray-700'
+                        } transition-colors`}></div>
+                        <div className={`absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${
+                          formData.disponivel ? 'transform translate-x-6' : ''
+                        }`}></div>
+                      </div>
+                      <div className="ml-3">
+                        <span className={`font-medium ${
+                          formData.disponivel ? 'text-green-400' : 'text-gray-400'
+                        }`}>
+                          {formData.disponivel ? 'Disponível' : 'Indisponível'}
+                        </span>
+                        <p className="text-sm text-gray-500">
+                          {formData.disponivel ? 'Aparece no cardápio' : 'Oculto do cardápio'}
+                        </p>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Pré-visualização da Imagem */}
+              {formData.imagem_url && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Pré-visualização
+                  </label>
+                  <div className="bg-gray-900/50 rounded-lg p-4">
+                    <div className="aspect-video rounded-lg overflow-hidden bg-gray-800 flex items-center justify-center">
+                      <img
+                        src={formData.imagem_url}
+                        alt="Pré-visualização"
+                        className="max-h-64 object-contain"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = 'https://placehold.co/600x400/374151/9ca3af?text=Imagem+Inválida';
+                        }}
+                      />
                     </div>
-                  ))}
+                  </div>
                 </div>
+              )}
 
+              {/* Botões */}
+              <div className="flex flex-col sm:flex-row gap-4 pt-4 border-t border-gray-700/50">
                 <button
+                  type="button"
                   onClick={onClose}
                   disabled={loading}
-                  className="w-full mt-6 bg-gradient-to-r from-[#e58840] to-[#e58840]/90 hover:from-[#e58840]/90 hover:to-[#e58840] text-[#400b0b] font-bold py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center disabled:opacity-50"
+                  className="flex-1 px-6 py-3 border border-gray-600 text-gray-300 hover:bg-gray-700/50 rounded-lg transition-colors disabled:opacity-50"
                 >
-                  Fechar Modal
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 px-6 py-3 bg-gradient-to-r from-[#e58840] to-[#e58840]/90 hover:from-[#e58840]/90 hover:to-[#e58840] text-[#400b0b] font-bold rounded-lg transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {loading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                      Salvando...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4" />
+                      {initialData ? 'Atualizar Produto' : 'Criar Produto'}
+                    </>
+                  )}
                 </button>
               </div>
-            </div>
+            </form>
           </div>
         </div>
       </div>
