@@ -20,17 +20,40 @@ const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
 }) => {
   console.log('✅ ProductFormMinimal RENDERIZADO com dados:', { initialData, categorias });
 
-  const [formData, setFormData] = useState({
-    nome: initialData?.nome || '',
-    descricao: initialData?.descricao || '',
-    preco: initialData?.preco ? Number(initialData.preco) : '',
-    categoria_id: initialData?.categoria_id || (categorias[0]?.id || ''),
-    disponivel: initialData?.disponivel !== false,
-    posicao: initialData?.posicao || 1,
-    imagem_url: initialData?.imagem_url || ''
+  // Estado corrigido - garantir que categoria_id seja sempre string
+  const [formData, setFormData] = useState(() => {
+    // Debug dos tipos
+    console.log('🔍 Tipos dos IDs de categoria:', 
+      categorias.map(c => ({ id: c.id, tipo: typeof c.id }))
+    );
+    
+    const initialCategoriaId = initialData?.categoria_id;
+    console.log('🔍 Tipo do initialCategoriaId:', typeof initialCategoriaId, 'valor:', initialCategoriaId);
+    
+    return {
+      nome: initialData?.nome || '',
+      descricao: initialData?.descricao || '',
+      preco: initialData?.preco ? Number(initialData.preco) : '',
+      // Garantir que seja string
+      categoria_id: initialCategoriaId 
+        ? String(initialCategoriaId) 
+        : (categorias[0]?.id ? String(categorias[0].id) : ''),
+      disponivel: initialData?.disponivel !== false,
+      posicao: initialData?.posicao || 1,
+      imagem_url: initialData?.imagem_url || ''
+    };
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Monitorar mudanças no formData
+  useEffect(() => {
+    console.log('📈 formData atualizado:', {
+      ...formData,
+      tipoCategoriaId: typeof formData.categoria_id,
+      valorCategoriaId: formData.categoria_id
+    });
+  }, [formData]);
 
   // Impedir rolagem da página quando o modal estiver aberto
   useEffect(() => {
@@ -40,16 +63,26 @@ const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
     };
   }, []);
 
+  // Handler corrigido - garantir consistência de tipos
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
+    
+    console.log(`🔄 Campo ${name} alterado:`, {
+      valor: value,
+      tipo: typeof value,
+      eventType: e.type
+    });
     
     if (type === 'checkbox') {
       const checked = (e.target as HTMLInputElement).checked;
       setFormData(prev => ({ ...prev, [name]: checked }));
     } else if (name === 'preco') {
-      // Permitir apenas números e ponto decimal
       const sanitizedValue = value.replace(/[^\d.,]/g, '').replace(',', '.');
       setFormData(prev => ({ ...prev, [name]: sanitizedValue }));
+    } else if (name === 'categoria_id') {
+      // ✅ FORÇAR PARA STRING - ESSENCIAL
+      console.log(`🎯 Convertendo categoria_id para string: ${value} -> "${String(value)}"`);
+      setFormData(prev => ({ ...prev, [name]: String(value) }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
@@ -94,8 +127,8 @@ const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
     const productData = {
       ...formData,
       preco: Number(formData.preco),
-      id: initialData?.id || '', // Se tiver ID, é edição
-      opcoes: initialData?.opcoes || [] // Manter opções se existirem
+      id: initialData?.id || '',
+      opcoes: initialData?.opcoes || []
     };
     
     console.log('📤 Enviando dados do produto:', productData);
@@ -136,15 +169,6 @@ const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
     );
   }
 
-  // Formatar preço para exibição
-  const formatPrice = (value: string | number) => {
-    const num = typeof value === 'string' ? parseFloat(value) || 0 : value;
-    return num.toLocaleString('pt-BR', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    });
-  };
-
   return (
     <Portal>
       <div className="fixed inset-0 z-[9999]">
@@ -181,6 +205,133 @@ const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
 
             {/* Formulário */}
             <form onSubmit={handleSubmit} className="p-6 space-y-6">
+              {/* Seção 2: Preço e Categoria */}
+              <div className="space-y-6">
+                <h4 className="text-lg font-semibold text-white border-b border-gray-700/50 pb-2">
+                  Preço e Categoria
+                </h4>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Categoria - CORRIGIDO */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Categoria *
+                    </label>
+                    
+                    {/* Debug info */}
+                    <div className="mb-2 p-2 bg-gray-900/30 rounded text-xs text-gray-400">
+                      <div className="grid grid-cols-2 gap-1">
+                        <div>ID selecionado: <span className="text-yellow-400">{formData.categoria_id || 'Nenhum'}</span></div>
+                        <div>Tipo ID: <span className="text-purple-400">{typeof formData.categoria_id}</span></div>
+                        <div>Valor bruto: <span className="text-blue-400">"{formData.categoria_id}"</span></div>
+                        <div>Total categorias: <span className="text-green-400">{categorias.length}</span></div>
+                      </div>
+                    </div>
+                    
+                    {/* Select CORRIGIDO - garantir value como string */}
+                    <select
+                      name="categoria_id"
+                      value={formData.categoria_id || ''} // ✅ Garantir string
+                      onChange={handleChange}
+                      className={`w-full bg-gray-900/50 border ${
+                        errors.categoria_id ? 'border-red-500' : 'border-gray-700'
+                      } rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#e58840]/50 focus:border-transparent transition-colors appearance-none`}
+                      disabled={loading}
+                    >
+                      <option value="">Selecione uma categoria</option>
+                      {categorias.map(categoria => {
+                        // ✅ FORÇAR value como string
+                        const stringValue = String(categoria.id);
+                        console.log(`📝 Option: ${categoria.id} (${typeof categoria.id}) → "${stringValue}" (${typeof stringValue})`);
+                        
+                        return (
+                          <option 
+                            key={categoria.id} 
+                            value={stringValue} // ✅ String garantida
+                          >
+                            {categoria.nome}
+                          </option>
+                        );
+                      })}
+                    </select>
+                    
+                    {/* Botões de teste */}
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (categorias[0]) {
+                            console.log('🔧 Forçando seleção da primeira categoria:', categorias[0].id);
+                            // ✅ Enviar como string
+                            setFormData(prev => ({ 
+                              ...prev, 
+                              categoria_id: String(categorias[0].id) 
+                            }));
+                          }
+                        }}
+                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors"
+                      >
+                        Selecionar 1ª
+                      </button>
+                      
+                      <button
+                        type="button"
+                        onClick={() => {
+                          console.log('📋 Estado atual:', {
+                            formData,
+                            tipoCategoriaId: typeof formData.categoria_id,
+                            categorias: categorias.map(c => ({ 
+                              id: c.id, 
+                              tipo: typeof c.id,
+                              string: String(c.id) 
+                            }))
+                          });
+                        }}
+                        className="px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white text-xs rounded transition-colors"
+                      >
+                        Log Tipos
+                      </button>
+                    </div>
+                    
+                    {errors.categoria_id && (
+                      <p className="mt-1 text-sm text-red-400 flex items-center gap-1">
+                        <AlertCircle className="w-4 h-4" />
+                        {errors.categoria_id}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Preço */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Preço (R$) *
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400">
+                        R$
+                      </span>
+                      <input
+                        type="text"
+                        name="preco"
+                        value={formData.preco}
+                        onChange={handleChange}
+                        className={`w-full bg-gray-900/50 border ${
+                          errors.preco ? 'border-red-500' : 'border-gray-700'
+                        } rounded-lg pl-10 pr-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#e58840]/50 focus:border-transparent transition-colors`}
+                        placeholder="0,00"
+                        disabled={loading}
+                      />
+                    </div>
+                    {errors.preco && (
+                      <p className="mt-1 text-sm text-red-400 flex items-center gap-1">
+                        <AlertCircle className="w-4 h-4" />
+                        {errors.preco}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               {/* Seção 1: Informações básicas */}
               <div className="space-y-6">
                 <h4 className="text-lg font-semibold text-white border-b border-gray-700/50 pb-2">
@@ -225,76 +376,6 @@ const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
                     placeholder="Descreva o produto (ingredientes, acompanhamentos, etc.)"
                     disabled={loading}
                   />
-                </div>
-              </div>
-
-              {/* Seção 2: Preço e Categoria */}
-              <div className="space-y-6">
-                <h4 className="text-lg font-semibold text-white border-b border-gray-700/50 pb-2">
-                  Preço e Categoria
-                </h4>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Preço */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Preço (R$) *
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400">
-                        R$
-                      </span>
-                      <input
-                        type="text"
-                        name="preco"
-                        value={formData.preco}
-                        onChange={handleChange}
-                        className={`w-full bg-gray-900/50 border ${
-                          errors.preco ? 'border-red-500' : 'border-gray-700'
-                        } rounded-lg pl-10 pr-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#e58840]/50 focus:border-transparent transition-colors`}
-                        placeholder="0,00"
-                        disabled={loading}
-                      />
-                    </div>
-                    {errors.preco && (
-                      <p className="mt-1 text-sm text-red-400 flex items-center gap-1">
-                        <AlertCircle className="w-4 h-4" />
-                        {errors.preco}
-                      </p>
-                    )}
-                    <p className="mt-2 text-sm text-gray-400">
-                      Valor exibido: R$ {formatPrice(formData.preco)}
-                    </p>
-                  </div>
-
-                  {/* Categoria */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Categoria *
-                    </label>
-                    <select
-                      name="categoria_id"
-                      value={formData.categoria_id}
-                      onChange={handleChange}
-                      className={`w-full bg-gray-900/50 border ${
-                        errors.categoria_id ? 'border-red-500' : 'border-gray-700'
-                      } rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#e58840]/50 focus:border-transparent transition-colors appearance-none`}
-                      disabled={loading}
-                    >
-                      <option value="">Selecione uma categoria</option>
-                      {categorias.map(categoria => (
-                        <option key={categoria.id} value={categoria.id}>
-                          {categoria.nome}
-                        </option>
-                      ))}
-                    </select>
-                    {errors.categoria_id && (
-                      <p className="mt-1 text-sm text-red-400 flex items-center gap-1">
-                        <AlertCircle className="w-4 h-4" />
-                        {errors.categoria_id}
-                      </p>
-                    )}
-                  </div>
                 </div>
               </div>
 
