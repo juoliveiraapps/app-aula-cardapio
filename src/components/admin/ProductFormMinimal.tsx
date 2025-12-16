@@ -226,31 +226,26 @@ const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
                     </div>
                     
                     {/* Select CORRIGIDO - garantir value como string */}
-                    <select
-                      name="categoria_id"
-                      value={formData.categoria_id || ''} // ✅ Garantir string
-                      onChange={handleChange}
-                      className={`w-full bg-gray-900/50 border ${
-                        errors.categoria_id ? 'border-red-500' : 'border-gray-700'
-                      } rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#e58840]/50 focus:border-transparent transition-colors appearance-none`}
-                      disabled={loading}
-                    >
-                      <option value="">Selecione uma categoria</option>
-                      {categorias.map(categoria => {
-                        // ✅ FORÇAR value como string
-                        const stringValue = String(categoria.id);
-                        console.log(`📝 Option: ${categoria.id} (${typeof categoria.id}) → "${stringValue}" (${typeof stringValue})`);
-                        
-                        return (
-                          <option 
-                            key={categoria.id} 
-                            value={stringValue} // ✅ String garantida
-                          >
-                            {categoria.nome}
-                          </option>
-                        );
-                      })}
-                    </select>
+                  <select
+  name="categoria_id"
+  value={formData.categoria_id}
+  onChange={handleChange}
+  className={`w-full bg-gray-900/50 border ${
+    errors.categoria_id ? 'border-red-500' : 'border-gray-700'
+  } rounded-lg px-4 py-3 text-white focus:outline-none`}
+>
+  <option value="">Selecione uma categoria</option>
+
+  {categorias.map(categoria => (
+    <option
+      key={categoria.categoria_id}
+      value={categoria.categoria_id}
+    >
+      {categoria.nome}
+    </option>
+  ))}
+</select>
+
                     
                     {/* Botões de teste */}
                     <div className="mt-3 flex flex-wrap gap-2">
