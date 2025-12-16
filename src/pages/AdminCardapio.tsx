@@ -267,7 +267,7 @@ const AdminCardapio = () => {
     onSubmit={handleSaveProduct}
     onClose={handleCloseForm}
     loading={processing}
-  />
+  
 )}>
           <div style={{
             backgroundColor: '#1f2937',
