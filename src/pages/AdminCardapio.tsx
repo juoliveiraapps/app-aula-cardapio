@@ -26,31 +26,41 @@ const AdminCardapio = () => {
     opcoes: prod.opcoes || []
   }));
 
- const handleSaveProduct = async (productData: any): Promise<boolean> => {
-  try {
-    setProcessing(true);
-    console.log('📝 Salvando produto:', productData);
-    
-    const data = await saveProductToSheet(productData);
-    
-    console.log('✅ Produto salvo com sucesso:', data);
-    alert(data.message || 'Produto salvo com sucesso!');
-    
-    // Fechar modal
-    setShowForm(false);
-    
-    // Recarregar a página para atualizar os dados
-    window.location.reload();
-    return true;
-    
-  } catch (err: any) {
-    console.error('❌ Erro ao salvar produto:', err);
-    alert(`Erro: ${err.message || 'Erro desconhecido'}`);
-    return false;
-  } finally {
-    setProcessing(false);
-  }
-};
+  const handleSaveProduct = async (productData: any): Promise<boolean> => {
+    try {
+      setProcessing(true);
+      console.log('📝 Salvando produto:', productData);
+      
+      const data = await saveProductToSheet(productData);
+      
+      console.log('✅ Produto salvo com sucesso:', data);
+      
+      // Fechar o modal primeiro
+      setShowForm(false);
+      setEditingProduct(null);
+      
+      // Dar tempo para o React atualizar o estado antes do recarregamento
+      setTimeout(() => {
+        alert(data.message || 'Produto salvo com sucesso!');
+        window.location.reload();
+      }, 100);
+      
+      return true;
+      
+    } catch (err: any) {
+      console.error('❌ Erro ao salvar produto:', err);
+      
+      // Fechar o modal em caso de erro também
+      setShowForm(false);
+      setProcessing(false);
+      
+      setTimeout(() => {
+        alert(`Erro: ${err.message || 'Erro desconhecido'}`);
+      }, 100);
+      
+      return false;
+    }
+  };
 
   const handleDeleteProduct = async (id: string): Promise<void> => {
     if (!window.confirm('Tem certeza que deseja excluir este produto?')) {
@@ -64,15 +74,19 @@ const AdminCardapio = () => {
       const data = await deleteProductFromSheet(id);
       
       console.log('✅ Produto deletado com sucesso:', data);
-      alert(data.message || 'Produto deletado com sucesso!');
       
-      window.location.reload();
+      setTimeout(() => {
+        alert(data.message || 'Produto deletado com sucesso!');
+        window.location.reload();
+      }, 100);
       
     } catch (err: any) {
       console.error('❌ Erro ao deletar produto:', err);
-      alert(`Erro: ${err.message || 'Erro desconhecido'}`);
-    } finally {
       setProcessing(false);
+      
+      setTimeout(() => {
+        alert(`Erro: ${err.message || 'Erro desconhecido'}`);
+      }, 100);
     }
   };
 
@@ -181,7 +195,7 @@ const AdminCardapio = () => {
           categorias={categorias}
           onSubmit={handleSaveProduct}
           onClose={() => {
-            console.log('🔒 Fechando modal');
+            console.log('🔒 Fechando modal via botão X/overlay');
             setShowForm(false);
             setEditingProduct(null);
           }}
