@@ -183,13 +183,7 @@ const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
                       Categoria *
                     </label>
                     
-                    <div className="mb-2 p-2 bg-gray-900/30 rounded text-xs text-gray-400">
-                      <div className="grid grid-cols-2 gap-1">
-                        <div>ID selecionado: <span className="text-yellow-400">{formData.categoria_id || 'Nenhum'}</span></div>
-                        <div>Tipo: <span className="text-purple-400">{typeof formData.categoria_id}</span></div>
-                        <div>Valor: <span className="text-blue-400">"{formData.categoria_id}"</span></div>
-                      </div>
-                    </div>
+                   
                     
                     <select
                       name="categoria_id"
