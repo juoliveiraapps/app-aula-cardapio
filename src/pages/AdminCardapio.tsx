@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, RefreshCw } from 'lucide-react';
 import { useCardapioData } from '../hooks/useCardapioData';
 import { Produto } from '../types';
@@ -7,10 +7,11 @@ import ProductList from '../components/admin/ProductList';
 import { saveProductToSheet, deleteProductFromSheet } from '../services/adminService';
 
 const AdminCardapio = () => {
-  const { produtos: produtosData, categorias, loading, error } = useCardapioData();
+  const { produtos: produtosData, categorias, loading, error, refetch } = useCardapioData();
   const [showForm, setShowForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Produto | null>(null);
   const [processing, setProcessing] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Converter produtos para o formato do ProductList
   const produtos = produtosData.map(prod => ({
@@ -39,26 +40,25 @@ const AdminCardapio = () => {
       setShowForm(false);
       setEditingProduct(null);
       
-      // Dar tempo para o React atualizar o estado antes do recarregamento
+      // Mostrar mensagem de sucesso
+      alert(data.message || 'Produto salvo com sucesso!');
+      
+      // Disparar recarregamento dos dados sem recarregar a página
       setTimeout(() => {
-        alert(data.message || 'Produto salvo com sucesso!');
-        window.location.reload();
-      }, 100);
+        setRefreshTrigger(prev => prev + 1);
+      }, 500);
       
       return true;
       
     } catch (err: any) {
       console.error('❌ Erro ao salvar produto:', err);
       
-      // Fechar o modal em caso de erro também
-      setShowForm(false);
-      setProcessing(false);
-      
-      setTimeout(() => {
-        alert(`Erro: ${err.message || 'Erro desconhecido'}`);
-      }, 100);
+      // Manter o modal aberto em caso de erro para correção
+      alert(`Erro: ${err.message || 'Erro desconhecido'}`);
       
       return false;
+    } finally {
+      setProcessing(false);
     }
   };
 
@@ -75,25 +75,32 @@ const AdminCardapio = () => {
       
       console.log('✅ Produto deletado com sucesso:', data);
       
+      alert(data.message || 'Produto deletado com sucesso!');
+      
+      // Disparar recarregamento dos dados sem recarregar a página
       setTimeout(() => {
-        alert(data.message || 'Produto deletado com sucesso!');
-        window.location.reload();
-      }, 100);
+        setRefreshTrigger(prev => prev + 1);
+      }, 500);
       
     } catch (err: any) {
       console.error('❌ Erro ao deletar produto:', err);
+      alert(`Erro: ${err.message || 'Erro desconhecido'}`);
+    } finally {
       setProcessing(false);
-      
-      setTimeout(() => {
-        alert(`Erro: ${err.message || 'Erro desconhecido'}`);
-      }, 100);
     }
   };
 
   const handleNewProduct = () => {
     console.log('🆕 Abrindo modal de novo produto');
+    console.log('Estado atual - showForm:', showForm, 'editingProduct:', editingProduct);
+    
+    // Resetar estado antes de abrir
     setEditingProduct(null);
-    setShowForm(true);
+    
+    // Forçar uma nova renderização
+    setTimeout(() => {
+      setShowForm(true);
+    }, 0);
   };
 
   const handleEditProduct = (product: any) => {
@@ -103,8 +110,18 @@ const AdminCardapio = () => {
   };
 
   const refreshProducts = () => {
-    window.location.reload();
+    // Usar refetch se disponível, ou recarregar a página
+    if (refetch) {
+      refetch();
+    } else {
+      window.location.reload();
+    }
   };
+
+  // Adicionar um efeito para debug
+  useEffect(() => {
+    console.log('🔄 Estado atualizado - showForm:', showForm, 'processing:', processing);
+  }, [showForm, processing]);
 
   return (
     <>
@@ -188,14 +205,15 @@ const AdminCardapio = () => {
         />
       </div>
 
-      {/* Modal - FORA do container principal, no nível mais alto */}
+      {/* Modal - Sempre renderizado, controlado por CSS */}
       {showForm && (
         <ProductFormMinimal
+          key={editingProduct?.id || 'new'} // Key importante para resetar o formulário
           initialData={editingProduct || undefined}
           categorias={categorias}
           onSubmit={handleSaveProduct}
           onClose={() => {
-            console.log('🔒 Fechando modal via botão X/overlay');
+            console.log('🔒 Fechando modal');
             setShowForm(false);
             setEditingProduct(null);
           }}
