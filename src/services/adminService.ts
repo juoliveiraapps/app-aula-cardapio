@@ -1,9 +1,8 @@
-// src/services/adminService.ts
 export const saveProductToSheet = async (productData: any) => {
   try {
     console.log('📤 Enviando produto para API:', productData);
-    
-    const response = await fetch('/api/save-product', {
+
+    const response = await fetch('/api?action=saveProduct', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -19,7 +18,7 @@ export const saveProductToSheet = async (productData: any) => {
     const data = await response.json();
     console.log('✅ Resposta da API:', data);
     return data;
-    
+
   } catch (error) {
     console.error('❌ Erro na função saveProductToSheet:', error);
     throw error;
@@ -29,9 +28,13 @@ export const saveProductToSheet = async (productData: any) => {
 export const deleteProductFromSheet = async (id: string) => {
   try {
     console.log('🗑️ Solicitando exclusão do produto:', id);
-    
-    const response = await fetch(`/api/delete-product/${id}`, {
-      method: 'DELETE',
+
+    const response = await fetch('/api?action=deleteProduct', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ id }),
     });
 
     if (!response.ok) {
@@ -42,7 +45,7 @@ export const deleteProductFromSheet = async (id: string) => {
     const data = await response.json();
     console.log('✅ Resposta da exclusão:', data);
     return data;
-    
+
   } catch (error) {
     console.error('❌ Erro na função deleteProductFromSheet:', error);
     throw error;
