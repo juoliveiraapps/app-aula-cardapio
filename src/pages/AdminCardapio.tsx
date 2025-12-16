@@ -26,28 +26,31 @@ const AdminCardapio = () => {
     opcoes: prod.opcoes || []
   }));
 
-  const handleSaveProduct = async (productData: any): Promise<boolean> => {
-    try {
-      setProcessing(true);
-      console.log('📝 Salvando produto:', productData);
-      
-      // Simular salvamento para testar
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      console.log('✅ Produto salvo com sucesso (SIMULAÇÃO)!');
-      alert('Produto salvo com sucesso! (MODO TESTE)');
-      
-      // Fechar modal após salvar
-      setShowForm(false);
-      return true;
-      
-    } catch (err: any) {
-      console.error('❌ Erro ao salvar produto:', err);
-      alert(`Erro: ${err.message || 'Erro desconhecido'}`);
-      return false;
-    } finally {
-      setProcessing(false);
-    }
-  };
+ const handleSaveProduct = async (productData: any): Promise<boolean> => {
+  try {
+    setProcessing(true);
+    console.log('📝 Salvando produto:', productData);
+    
+    const data = await saveProductToSheet(productData);
+    
+    console.log('✅ Produto salvo com sucesso:', data);
+    alert(data.message || 'Produto salvo com sucesso!');
+    
+    // Fechar modal
+    setShowForm(false);
+    
+    // Recarregar a página para atualizar os dados
+    window.location.reload();
+    return true;
+    
+  } catch (err: any) {
+    console.error('❌ Erro ao salvar produto:', err);
+    alert(`Erro: ${err.message || 'Erro desconhecido'}`);
+    return false;
+  } finally {
+    setProcessing(false);
+  }
+};
 
   const handleDeleteProduct = async (id: string): Promise<void> => {
     if (!window.confirm('Tem certeza que deseja excluir este produto?')) {
