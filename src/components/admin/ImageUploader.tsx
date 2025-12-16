@@ -25,8 +25,6 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
   const validateCloudinaryConfig = () => {
     if (!CLOUD_NAME || !UPLOAD_PRESET) {
       console.error('❌ Configuração do Cloudinary não encontrada!');
-      console.log('CLOUD_NAME:', CLOUD_NAME);
-      console.log('UPLOAD_PRESET:', UPLOAD_PRESET);
       return false;
     }
     return true;
@@ -35,7 +33,6 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
   const handleFileSelect = () => {
     if (disabled) return;
     
-    // Verificar configuração antes de permitir upload
     if (!validateCloudinaryConfig()) {
       alert('Configuração do Cloudinary não encontrada. Por favor, configure as variáveis de ambiente.');
       return;
@@ -48,7 +45,6 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // Verificar configuração
     if (!validateCloudinaryConfig()) {
       alert('Configuração do Cloudinary não encontrada. Não é possível fazer upload.');
       return;
@@ -85,11 +81,12 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
       const formData = new FormData();
       formData.append('file', file);
       formData.append('upload_preset', UPLOAD_PRESET);
-      formData.append('cloud_name', CLOUD_NAME);
+      // Apenas cloud_name na URL, não no formData para unsigned upload
       
-      // Configurações opcionais para otimização
+      // Parâmetros permitidos em unsigned upload
       formData.append('folder', 'cardapio-digital');
-      formData.append('transformation', 'c_fill,w_800,h_600,q_auto:good');
+      // Remova completamente o parâmetro 'transformation'
+      // Não adicione transformation aqui!
 
       console.log('🌤️ Fazendo upload para Cloudinary...', {
         cloudName: CLOUD_NAME,
@@ -107,20 +104,38 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
       );
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Erro na resposta do Cloudinary:', errorText);
-        throw new Error(`Erro ao fazer upload: ${response.status} ${response.statusText}`);
+        const errorData = await response.json();
+        console.error('❌ Erro na resposta do Cloudinary:', errorData);
+        
+        let errorMessage = 'Erro ao fazer upload da imagem. ';
+        if (errorData.error?.message) {
+          errorMessage += errorData.error.message;
+        }
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
       console.log('✅ Upload bem-sucedido:', {
         url: data.secure_url,
         publicId: data.public_id,
-        format: data.format
+        format: data.format,
+        width: data.width,
+        height: data.height
       });
       
-      // Retornar a URL otimizada
-      const optimizedUrl = data.secure_url.replace('/upload/', '/upload/c_fill,w_800,h_600,q_auto:good/');
+      // Aplicar transformação na URL APÓS o upload
+      // Isso é permitido - manipulamos a URL, não enviamos no upload
+      const applyTransformations = (url: string) => {
+        // Adicionar transformações ao final da URL
+        const baseUrl = url.split('/upload/')[0];
+        const imagePath = url.split('/upload/')[1];
+        
+        // Transformações: crop fill 800x600, qualidade automática
+        return `${baseUrl}/upload/c_fill,w_800,h_600,q_auto:good/${imagePath}`;
+      };
+      
+      const optimizedUrl = applyTransformations(data.secure_url);
+      console.log('🔄 URL otimizada:', optimizedUrl);
       
       onImageUploaded(optimizedUrl);
       alert('✅ Imagem enviada com sucesso!');
@@ -128,24 +143,15 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
     } catch (error) {
       console.error('❌ Erro no upload:', error);
       
-      // Mensagem de erro mais amigável
       let errorMessage = 'Erro ao fazer upload da imagem. ';
-      
       if (error instanceof Error) {
-        if (error.message.includes('Failed to fetch')) {
-          errorMessage += 'Verifique sua conexão com a internet.';
-        } else if (error.message.includes('upload preset')) {
-          errorMessage += 'Configuração do Cloudinary incorreta.';
-        } else {
-          errorMessage += error.message;
-        }
+        errorMessage += error.message;
       }
       
       alert(errorMessage);
       setPreviewUrl(null);
     } finally {
       setUploading(false);
-      // Limpar input file
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -163,7 +169,6 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
   const handlePasteUrl = () => {
     const url = prompt('Cole a URL da imagem:');
     if (url) {
-      // Validar URL
       try {
         new URL(url);
         setPreviewUrl(url);
@@ -173,6 +178,31 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
       }
     }
   };
+
+  // Função para aplicar transformações a qualquer URL do Cloudinary
+  const optimizeExistingUrl = (url: string) => {
+    if (!url.includes('cloudinary.com')) return url;
+    
+    try {
+      const urlObj = new URL(url);
+      const pathParts = urlObj.pathname.split('/');
+      
+      // Encontrar a posição de 'upload'
+      const uploadIndex = pathParts.indexOf('upload');
+      if (uploadIndex === -1) return url;
+      
+      // Inserir transformações após 'upload'
+      pathParts.splice(uploadIndex + 1, 0, 'c_fill,w_800,h_600,q_auto:good');
+      
+      urlObj.pathname = pathParts.join('/');
+      return urlObj.toString();
+    } catch {
+      return url;
+    }
+  };
+
+  // Otimizar URL atual se for do Cloudinary
+  const displayUrl = previewUrl ? optimizeExistingUrl(previewUrl) : null;
 
   return (
     <div className="space-y-4">
@@ -194,7 +224,11 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
             <div>
               <p className="text-yellow-400 font-medium">Cloudinary não configurado</p>
               <p className="text-yellow-300/80 text-sm">
-                Configure as variáveis de ambiente VITE_CLOUDINARY_CLOUD_NAME e VITE_CLOUDINARY_UPLOAD_PRESET
+                Configure as variáveis de ambiente no arquivo .env:
+                <br />
+                VITE_CLOUDINARY_CLOUD_NAME=seu-cloud-name
+                <br />
+                VITE_CLOUDINARY_UPLOAD_PRESET=seu-upload-preset
               </p>
             </div>
           </div>
@@ -205,7 +239,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
       <div className="relative">
         <div 
           className={`aspect-video rounded-lg border-2 border-dashed ${
-            previewUrl 
+            displayUrl 
               ? 'border-transparent' 
               : 'border-gray-600 hover:border-[#e58840]'
           } transition-colors overflow-hidden bg-gray-900/50 flex items-center justify-center ${
@@ -213,14 +247,14 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
           }`}
           onClick={handleFileSelect}
         >
-          {previewUrl ? (
+          {displayUrl ? (
             <div className="relative w-full h-full group">
               <img
-                src={previewUrl}
+                src={displayUrl}
                 alt="Preview"
                 className="w-full h-full object-cover"
                 onError={(e) => {
-                  console.error('❌ Erro ao carregar imagem:', previewUrl);
+                  console.error('❌ Erro ao carregar imagem:', displayUrl);
                   (e.target as HTMLImageElement).src = 'https://placehold.co/600x400/374151/9ca3af?text=Erro+na+imagem';
                 }}
               />
@@ -251,7 +285,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
         </div>
 
         {/* Botão para remover imagem */}
-        {previewUrl && !disabled && (
+        {displayUrl && !disabled && (
           <button
             type="button"
             onClick={handleRemoveImage}
@@ -272,7 +306,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
           className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Upload className="w-4 h-4" />
-          {previewUrl ? 'Trocar Imagem' : 'Selecionar Imagem'}
+          {displayUrl ? 'Trocar Imagem' : 'Selecionar Imagem'}
         </button>
         
         <button
@@ -285,6 +319,14 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
           Colar URL
         </button>
       </div>
+
+      {/* Status */}
+      {uploading && (
+        <div className="flex items-center justify-center gap-2 text-sm text-[#e58840]">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          <span>Enviando imagem para o Cloudinary...</span>
+        </div>
+      )}
 
       {/* Dicas */}
       <div className="text-sm text-gray-400 space-y-1">
