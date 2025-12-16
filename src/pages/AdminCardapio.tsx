@@ -268,7 +268,7 @@ const AdminCardapio = () => {
     onClose={handleCloseForm}
     loading={processing}
   />
-)}
+)
 
       {/* Modal real (comentado temporariamente) */}
       {false && showForm && (
