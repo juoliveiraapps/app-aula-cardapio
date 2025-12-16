@@ -20,12 +20,19 @@ const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
 }) => {
   console.log('✅ ProductFormMinimal RENDERIZADO com dados:', { initialData, categorias });
 
-  // Estado corrigido - garantir que categoria_id seja sempre string
-  const [formData, setFormData] = useState(() => {
-    // Debug dos tipos
-    console.log('🔍 Tipos dos IDs de categoria:', 
-      categorias.map(c => ({ id: c.id, tipo: typeof c.id }))
-    );
+  const [formData, setFormData] = useState({
+  nome: initialData?.nome || '',
+  descricao: initialData?.descricao || '',
+  preco: initialData?.preco ? String(initialData.preco) : '',
+  categoria_id:
+    initialData?.categoria_id ??
+    categorias?.[0]?.categoria_id ??
+    '',
+  disponivel: initialData?.disponivel !== false,
+  posicao: initialData?.posicao || 1,
+  imagem_url: initialData?.imagem_url || ''
+});
+
     
     const initialCategoriaId = initialData?.categoria_id;
     console.log('🔍 Tipo do initialCategoriaId:', typeof initialCategoriaId, 'valor:', initialCategoriaId);
@@ -64,34 +71,24 @@ const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
   }, []);
 
   // Handler corrigido - garantir consistência de tipos
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target;
-    
-    console.log(`🔄 Campo ${name} alterado:`, {
-      valor: value,
-      tipo: typeof value,
-      eventType: e.type
-    });
-    
-    if (type === 'checkbox') {
-      const checked = (e.target as HTMLInputElement).checked;
-      setFormData(prev => ({ ...prev, [name]: checked }));
-    } else if (name === 'preco') {
-      const sanitizedValue = value.replace(/[^\d.,]/g, '').replace(',', '.');
-      setFormData(prev => ({ ...prev, [name]: sanitizedValue }));
-    } else if (name === 'categoria_id') {
-      // ✅ FORÇAR PARA STRING - ESSENCIAL
-      console.log(`🎯 Convertendo categoria_id para string: ${value} -> "${String(value)}"`);
-      setFormData(prev => ({ ...prev, [name]: String(value) }));
-    } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
-    }
-    
-    // Limpar erro ao digitar
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
-    }
-  };
+ const handleChange = (
+  e: React.ChangeEvent<
+    HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+  >
+) => {
+  const { name, value, type } = e.target;
+
+  if (type === 'checkbox') {
+    const checked = (e.target as HTMLInputElement).checked;
+    setFormData(prev => ({ ...prev, [name]: checked }));
+  } else {
+    setFormData(prev => ({ ...prev, [name]: value }));
+  }
+
+  if (errors[name]) {
+    setErrors(prev => ({ ...prev, [name]: '' }));
+  }
+};
 
   const handleImageUploaded = (url: string) => {
     console.log('🖼️ Imagem enviada:', url);
