@@ -1,8 +1,7 @@
-// Atualize o ProductFormMinimal.tsx
 import React, { useEffect, useState } from 'react';
 import { X, Check, AlertCircle } from 'lucide-react';
 import { Portal } from '../UI/Portal';
-import ImageUploader from './ImageUploader'; // Importe o componente
+import ImageUploader from './ImageUploader';
 
 interface ProductFormMinimalProps {
   initialData?: any;
@@ -19,19 +18,43 @@ const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
   onClose,
   loading = false
 }) => {
-  console.log('✅ ProductFormMinimal RENDERIZADO com dados:', { initialData, categorias });
+  console.log('✅ ProductFormMinimal RENDERIZADO com dados:', { 
+    initialData, 
+    categorias,
+    hasCategorias: categorias.length > 0,
+    primeiraCategoriaId: categorias[0]?.id 
+  });
+
+  // Encontrar categoria inicial corretamente
+  const getInitialCategoriaId = () => {
+    if (initialData?.categoria_id) {
+      return initialData.categoria_id;
+    }
+    
+    // Verificar se categorias[0] existe
+    if (categorias.length > 0 && categorias[0]?.id) {
+      return categorias[0].id;
+    }
+    
+    return ''; // Valor vazio se não houver categorias
+  };
 
   const [formData, setFormData] = useState({
     nome: initialData?.nome || '',
     descricao: initialData?.descricao || '',
     preco: initialData?.preco ? Number(initialData.preco) : '',
-    categoria_id: initialData?.categoria_id || (categorias[0]?.id || ''),
+    categoria_id: getInitialCategoriaId(), // Usar a função corrigida
     disponivel: initialData?.disponivel !== false,
     posicao: initialData?.posicao || 1,
     imagem_url: initialData?.imagem_url || ''
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Log quando o estado muda
+  useEffect(() => {
+    console.log('🔄 Estado formData atualizado:', formData);
+  }, [formData]);
 
   // Impedir rolagem da página quando o modal estiver aberto
   useEffect(() => {
@@ -41,18 +64,48 @@ const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
     };
   }, []);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
     const { name, value, type } = e.target;
+    
+    console.log(`✏️ Campo alterado: ${name} = ${value} (tipo: ${type})`);
     
     if (type === 'checkbox') {
       const checked = (e.target as HTMLInputElement).checked;
-      setFormData(prev => ({ ...prev, [name]: checked }));
+      setFormData(prev => ({ 
+        ...prev, 
+        [name]: checked 
+      }));
     } else if (name === 'preco') {
-      const sanitizedValue = value.replace(/[^\d.,]/g, '').replace(',', '.');
-      setFormData(prev => ({ ...prev, [name]: sanitizedValue }));
+      // Permitir apenas números e ponto decimal
+      const sanitizedValue = value.replace(/[^\d.,]/g, '');
+      setFormData(prev => ({ 
+        ...prev, 
+        [name]: sanitizedValue 
+      }));
     } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
+      setFormData(prev => ({ 
+        ...prev, 
+        [name]: value 
+      }));
     }
+    
+    // Limpar erro ao digitar
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  // Função específica para select
+  const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    console.log(`📋 Select alterado: ${name} = ${value}`);
+    
+    setFormData(prev => ({ 
+      ...prev, 
+      [name]: value 
+    }));
     
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
@@ -61,7 +114,10 @@ const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
 
   const handleImageUploaded = (url: string) => {
     console.log('🖼️ Imagem enviada:', url);
-    setFormData(prev => ({ ...prev, imagem_url: url }));
+    setFormData(prev => ({ 
+      ...prev, 
+      imagem_url: url 
+    }));
   };
 
   const validateForm = (): boolean => {
@@ -80,36 +136,40 @@ const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
     }
     
     setErrors(newErrors);
+    console.log('✅ Validação:', { hasErrors: Object.keys(newErrors).length > 0, errors: newErrors });
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  console.log('🔄 handleSubmit chamado');
-  console.log('📊 Dados do formulário:', formData);
-  console.log('⏳ Estado loading:', loading);
-  
-  if (!validateForm()) {
-    console.log('❌ Validação falhou');
-    return;
-  }
-  
-  const productData = {
-    ...formData,
-    preco: Number(formData.preco),
-    id: initialData?.id || '',
-    opcoes: initialData?.opcoes || []
+    e.preventDefault();
+    console.log('🔄 handleSubmit chamado');
+    
+    if (!validateForm()) {
+      console.log('❌ Validação falhou');
+      return;
+    }
+    
+    // Converter preço para número
+    const precoNumerico = typeof formData.preco === 'string' 
+      ? parseFloat(formData.preco.replace(',', '.')) 
+      : Number(formData.preco);
+    
+    const productData = {
+      ...formData,
+      preco: precoNumerico,
+      id: initialData?.id || '',
+      opcoes: initialData?.opcoes || []
+    };
+    
+    console.log('📤 Dados preparados para envio:', productData);
+    
+    const success = await onSubmit(productData);
+    console.log('✅ Resultado do onSubmit:', success);
+    
+    if (success) {
+      onClose();
+    }
   };
-  
-  console.log('📤 Dados preparados para envio:', productData);
-  
-  const success = await onSubmit(productData);
-  console.log('✅ Resultado do onSubmit:', success);
-  
-  if (success) {
-    onClose();
-  }
-};
 
   // Se não houver categorias
   if (categorias.length === 0) {
@@ -143,7 +203,9 @@ const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
 
   // Formatar preço para exibição
   const formatPrice = (value: string | number) => {
-    const num = typeof value === 'string' ? parseFloat(value) || 0 : value;
+    const num = typeof value === 'string' 
+      ? parseFloat(value.replace(',', '.')) || 0 
+      : value;
     return num.toLocaleString('pt-BR', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
@@ -265,33 +327,50 @@ const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
                     </p>
                   </div>
 
-                  {/* Categoria */}
+                  {/* Categoria - CORRIGIDO */}
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">
                       Categoria *
                     </label>
-                    <select
-                      name="categoria_id"
-                      value={formData.categoria_id}
-                      onChange={handleChange}
-                      className={`w-full bg-gray-900/50 border ${
-                        errors.categoria_id ? 'border-red-500' : 'border-gray-700'
-                      } rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#e58840]/50 focus:border-transparent transition-colors appearance-none`}
-                      disabled={loading}
-                    >
-                      <option value="">Selecione uma categoria</option>
-                      {categorias.map(categoria => (
-                        <option key={categoria.id} value={categoria.id}>
-                          {categoria.nome}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="relative">
+                      <select
+                        name="categoria_id"
+                        value={formData.categoria_id}
+                        onChange={handleSelectChange} // Usando função específica
+                        className={`w-full bg-gray-900/50 border ${
+                          errors.categoria_id ? 'border-red-500' : 'border-gray-700'
+                        } rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#e58840]/50 focus:border-transparent transition-colors appearance-none pr-10`}
+                        disabled={loading}
+                      >
+                        <option value="">Selecione uma categoria</option>
+                        {categorias.map(categoria => (
+                          <option 
+                            key={categoria.id} 
+                            value={categoria.id}
+                          >
+                            {categoria.nome}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </div>
                     {errors.categoria_id && (
                       <p className="mt-1 text-sm text-red-400 flex items-center gap-1">
                         <AlertCircle className="w-4 h-4" />
                         {errors.categoria_id}
                       </p>
                     )}
+                    <div className="mt-2 text-sm text-gray-400">
+                      <p>Categoria selecionada: {
+                        categorias.find(c => c.id === formData.categoria_id)?.nome || 
+                        'Nenhuma'
+                      }</p>
+                      <p className="text-xs mt-1">Total de categorias: {categorias.length}</p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -347,7 +426,7 @@ const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
                       disabled={loading}
                     />
                     <p className="mt-2 text-sm text-gray-400">
-                      Número que define a ordem no cardápio
+                      Número que define a ordem no cardápio (menor = primeiro)
                     </p>
                   </div>
 
@@ -403,7 +482,7 @@ const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex-1 px-6 py-3 bg-gradient-to-r from-[#e58840] to-[#e58840]/90 hover:from-[#e58840]/90 hover:to-[#e58840] text-[#400b0b] font-bold rounded-lg transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="flex-1 px-6 py-3 bg-gradient-to-r from-[#e58840] to-[#e58840]/90 hover:from-[#e58840]/90 hover:to-[#e58840] text-[#400b0b] font-bold rounded-lg transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loading ? (
                     <>
