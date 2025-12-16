@@ -7,13 +7,11 @@ import ProductList from '../components/admin/ProductList';
 import { saveProductToSheet, deleteProductFromSheet } from '../services/adminService';
 
 const AdminCardapio = () => {
-  const { produtos: produtosData, categorias, loading, error, refetch } = useCardapioData();
-  const [showForm, setShowForm] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<Produto | null>(null);
-  const [processing, setProcessing] = useState(false);
-
+  const { produtos: produtosData, categorias: categoriasRaw, loading, error, refetch } = useCardapioData();
+  
+  // 🔧 TRANSFORMAÇÃO DAS CATEGORIAS
   const categorias = categoriasRaw.map(cat => ({
-    id: cat.categoria_id,      // ← Mapeia categoria_id para id
+    id: cat.categoria_id,      // ← ESSENCIAL: mapeia categoria_id para id
     nome: cat.nome || '',
     descricao: cat.descricao || '',
     posicao: cat.posicao || 1,
@@ -21,22 +19,31 @@ const AdminCardapio = () => {
     icone_svg: cat.icone_svg || ''
   }));
 
-  
+  console.log('🔍 Categorias da API (raw):', categoriasRaw);
+  console.log('🔧 Categorias transformadas:', categorias);
   
   const [showForm, setShowForm] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Produto | null>(null);
+  const [processing, setProcessing] = useState(false);
+
   // Converter produtos para o formato do ProductList
-  const produtos = produtosData.map(prod => ({
-    id: prod.id || '',
-    nome: prod.nome || '',
-    descricao: prod.descricao || '',
-    preco: prod.preco || 0,
-    imagem_url: prod.imagem_url || '',
-    categoria_id: prod.categoria_id || '',
-    categoria_nome: categorias.find(c => c.id === prod.categoria_id)?.nome || '',
-    disponivel: prod.disponivel !== false,
-    posicao: prod.posicao || 1,
-    opcoes: prod.opcoes || []
-  }));
+  const produtos = produtosData.map(prod => {
+    // Usar as categorias transformadas
+    const cat = categorias.find(c => c.id === prod.categoria_id);
+    
+    return {
+      id: prod.id || '',
+      nome: prod.nome || '',
+      descricao: prod.descricao || '',
+      preco: prod.preco || 0,
+      imagem_url: prod.imagem_url || '',
+      categoria_id: prod.categoria_id || '',
+      categoria_nome: cat?.nome || '',
+      disponivel: prod.disponivel !== false,
+      posicao: prod.posicao || 1,
+      opcoes: prod.opcoes || []
+    };
+  });
 
   const handleSaveProduct = async (productData: any): Promise<boolean> => {
     console.log('📝 Iniciando salvamento do produto:', productData);
