@@ -1,6 +1,8 @@
+// Atualize o ProductFormMinimal.tsx
 import React, { useEffect, useState } from 'react';
-import { X, Upload, Check, AlertCircle } from 'lucide-react';
+import { X, Check, AlertCircle } from 'lucide-react';
 import { Portal } from '../UI/Portal';
+import ImageUploader from './ImageUploader'; // Importe o componente
 
 interface ProductFormMinimalProps {
   initialData?: any;
@@ -46,17 +48,20 @@ const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
       const checked = (e.target as HTMLInputElement).checked;
       setFormData(prev => ({ ...prev, [name]: checked }));
     } else if (name === 'preco') {
-      // Permitir apenas números e ponto decimal
-      const sanitizedValue = value.replace(/[^\d.]/g, '');
+      const sanitizedValue = value.replace(/[^\d.,]/g, '').replace(',', '.');
       setFormData(prev => ({ ...prev, [name]: sanitizedValue }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
     
-    // Limpar erro ao digitar
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
     }
+  };
+
+  const handleImageUploaded = (url: string) => {
+    console.log('🖼️ Imagem enviada:', url);
+    setFormData(prev => ({ ...prev, imagem_url: url }));
   };
 
   const validateForm = (): boolean => {
@@ -88,8 +93,8 @@ const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
     const productData = {
       ...formData,
       preco: Number(formData.preco),
-      id: initialData?.id || '', // Se tiver ID, é edição
-      opcoes: initialData?.opcoes || [] // Manter opções se existirem
+      id: initialData?.id || '',
+      opcoes: initialData?.opcoes || []
     };
     
     console.log('📤 Enviando dados do produto:', productData);
@@ -100,7 +105,7 @@ const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
     }
   };
 
-  // Se não houver categorias, mostrar mensagem
+  // Se não houver categorias
   if (categorias.length === 0) {
     return (
       <Portal>
@@ -130,19 +135,21 @@ const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
     );
   }
 
+  // Formatar preço para exibição
+  const formatPrice = (value: string | number) => {
+    const num = typeof value === 'string' ? parseFloat(value) || 0 : value;
+    return num.toLocaleString('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  };
+
   return (
     <Portal>
       <div className="fixed inset-0 z-[9999]">
-        {/* Overlay */}
-        <div
-          className="absolute inset-0 bg-black/70"
-          onClick={onClose}
-        />
-
-        {/* Container do modal */}
+        <div className="absolute inset-0 bg-black/70" onClick={onClose} />
         <div className="absolute inset-0 flex items-center justify-center p-4">
-          {/* Conteúdo do modal */}
-          <div className="relative bg-gray-800 rounded-2xl border border-gray-700/50 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="relative bg-gray-800 rounded-2xl border border-gray-700/50 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
             {/* Cabeçalho */}
             <div className="sticky top-0 bg-gray-800 border-b border-gray-700/50 px-6 py-4 z-10">
               <div className="flex items-center justify-between">
@@ -166,221 +173,219 @@ const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
 
             {/* Formulário */}
             <form onSubmit={handleSubmit} className="p-6 space-y-6">
-              {/* Nome do Produto */}
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Nome do Produto *
-                </label>
-                <input
-                  type="text"
-                  name="nome"
-                  value={formData.nome}
-                  onChange={handleChange}
-                  className={`w-full bg-gray-900/50 border ${
-                    errors.nome ? 'border-red-500' : 'border-gray-700'
-                  } rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#e58840]/50 focus:border-transparent transition-colors`}
-                  placeholder="Ex: Pizza Calabresa"
-                  disabled={loading}
-                />
-                {errors.nome && (
-                  <p className="mt-1 text-sm text-red-400 flex items-center gap-1">
-                    <AlertCircle className="w-4 h-4" />
-                    {errors.nome}
-                  </p>
-                )}
-              </div>
-
-              {/* Descrição */}
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Descrição
-                </label>
-                <textarea
-                  name="descricao"
-                  value={formData.descricao}
-                  onChange={handleChange}
-                  rows={3}
-                  className="w-full bg-gray-900/50 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#e58840]/50 focus:border-transparent transition-colors resize-none"
-                  placeholder="Descreva o produto..."
-                  disabled={loading}
-                />
-              </div>
-
-              {/* Preço e Categoria */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Preço */}
+              {/* Seção 1: Informações básicas */}
+              <div className="space-y-6">
+                <h4 className="text-lg font-semibold text-white border-b border-gray-700/50 pb-2">
+                  Informações Básicas
+                </h4>
+                
+                {/* Nome */}
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Preço (R$) *
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400">
-                      R$
-                    </span>
-                    <input
-                      type="text"
-                      name="preco"
-                      value={formData.preco}
-                      onChange={handleChange}
-                      className={`w-full bg-gray-900/50 border ${
-                        errors.preco ? 'border-red-500' : 'border-gray-700'
-                      } rounded-lg pl-10 pr-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#e58840]/50 focus:border-transparent transition-colors`}
-                      placeholder="0,00"
-                      disabled={loading}
-                    />
-                  </div>
-                  {errors.preco && (
-                    <p className="mt-1 text-sm text-red-400 flex items-center gap-1">
-                      <AlertCircle className="w-4 h-4" />
-                      {errors.preco}
-                    </p>
-                  )}
-                </div>
-
-                {/* Categoria */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Categoria *
-                  </label>
-                  <select
-                    name="categoria_id"
-                    value={formData.categoria_id}
-                    onChange={handleChange}
-                    className={`w-full bg-gray-900/50 border ${
-                      errors.categoria_id ? 'border-red-500' : 'border-gray-700'
-                    } rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#e58840]/50 focus:border-transparent transition-colors appearance-none`}
-                    disabled={loading}
-                  >
-                    <option value="">Selecione uma categoria</option>
-                    {categorias.map(categoria => (
-                      <option key={categoria.id} value={categoria.id}>
-                        {categoria.nome}
-                      </option>
-                    ))}
-                  </select>
-                  {errors.categoria_id && (
-                    <p className="mt-1 text-sm text-red-400 flex items-center gap-1">
-                      <AlertCircle className="w-4 h-4" />
-                      {errors.categoria_id}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {/* URL da Imagem */}
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  URL da Imagem
-                </label>
-                <div className="flex items-center gap-3">
-                  <div className="flex-1">
-                    <input
-                      type="text"
-                      name="imagem_url"
-                      value={formData.imagem_url}
-                      onChange={handleChange}
-                      className="w-full bg-gray-900/50 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#e58840]/50 focus:border-transparent transition-colors"
-                      placeholder="https://exemplo.com/imagem.jpg"
-                      disabled={loading}
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    className="flex items-center gap-2 px-4 py-3 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors disabled:opacity-50"
-                    disabled={loading}
-                    title="Upload de imagem (em breve)"
-                  >
-                    <Upload className="w-4 h-4" />
-                    <span className="hidden sm:inline">Upload</span>
-                  </button>
-                </div>
-                <p className="mt-2 text-sm text-gray-400">
-                  Cole a URL de uma imagem ou deixe em branco para usar a imagem padrão
-                </p>
-              </div>
-
-              {/* Posição e Disponibilidade */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Posição */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Posição no Cardápio
+                    Nome do Produto *
                   </label>
                   <input
-                    type="number"
-                    name="posicao"
-                    value={formData.posicao}
+                    type="text"
+                    name="nome"
+                    value={formData.nome}
                     onChange={handleChange}
-                    min="1"
-                    className="w-full bg-gray-900/50 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#e58840]/50 focus:border-transparent transition-colors"
+                    className={`w-full bg-gray-900/50 border ${
+                      errors.nome ? 'border-red-500' : 'border-gray-700'
+                    } rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#e58840]/50 focus:border-transparent transition-colors`}
+                    placeholder="Ex: Pizza Calabresa"
                     disabled={loading}
                   />
-                  <p className="mt-2 text-sm text-gray-400">
-                    Número que define a ordem no cardápio (menor = primeiro)
-                  </p>
+                  {errors.nome && (
+                    <p className="mt-1 text-sm text-red-400 flex items-center gap-1">
+                      <AlertCircle className="w-4 h-4" />
+                      {errors.nome}
+                    </p>
+                  )}
                 </div>
 
-                {/* Disponibilidade */}
+                {/* Descrição */}
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Status
+                    Descrição
                   </label>
-                  <div className="flex items-center h-12">
-                    <label className="flex items-center cursor-pointer">
-                      <div className="relative">
-                        <input
-                          type="checkbox"
-                          name="disponivel"
-                          checked={formData.disponivel}
-                          onChange={handleChange}
-                          className="sr-only"
-                          disabled={loading}
-                        />
-                        <div className={`block w-14 h-8 rounded-full ${
-                          formData.disponivel ? 'bg-green-600' : 'bg-gray-700'
-                        } transition-colors`}></div>
-                        <div className={`absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${
-                          formData.disponivel ? 'transform translate-x-6' : ''
-                        }`}></div>
-                      </div>
-                      <div className="ml-3">
-                        <span className={`font-medium ${
-                          formData.disponivel ? 'text-green-400' : 'text-gray-400'
-                        }`}>
-                          {formData.disponivel ? 'Disponível' : 'Indisponível'}
-                        </span>
-                        <p className="text-sm text-gray-500">
-                          {formData.disponivel ? 'Aparece no cardápio' : 'Oculto do cardápio'}
-                        </p>
-                      </div>
+                  <textarea
+                    name="descricao"
+                    value={formData.descricao}
+                    onChange={handleChange}
+                    rows={3}
+                    className="w-full bg-gray-900/50 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#e58840]/50 focus:border-transparent transition-colors resize-none"
+                    placeholder="Descreva o produto (ingredientes, acompanhamentos, etc.)"
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+
+              {/* Seção 2: Preço e Categoria */}
+              <div className="space-y-6">
+                <h4 className="text-lg font-semibold text-white border-b border-gray-700/50 pb-2">
+                  Preço e Categoria
+                </h4>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Preço */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Preço (R$) *
                     </label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400">
+                        R$
+                      </span>
+                      <input
+                        type="text"
+                        name="preco"
+                        value={formData.preco}
+                        onChange={handleChange}
+                        className={`w-full bg-gray-900/50 border ${
+                          errors.preco ? 'border-red-500' : 'border-gray-700'
+                        } rounded-lg pl-10 pr-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#e58840]/50 focus:border-transparent transition-colors`}
+                        placeholder="0,00"
+                        disabled={loading}
+                      />
+                    </div>
+                    {errors.preco && (
+                      <p className="mt-1 text-sm text-red-400 flex items-center gap-1">
+                        <AlertCircle className="w-4 h-4" />
+                        {errors.preco}
+                      </p>
+                    )}
+                    <p className="mt-2 text-sm text-gray-400">
+                      Valor exibido: R$ {formatPrice(formData.preco)}
+                    </p>
+                  </div>
+
+                  {/* Categoria */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Categoria *
+                    </label>
+                    <select
+                      name="categoria_id"
+                      value={formData.categoria_id}
+                      onChange={handleChange}
+                      className={`w-full bg-gray-900/50 border ${
+                        errors.categoria_id ? 'border-red-500' : 'border-gray-700'
+                      } rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#e58840]/50 focus:border-transparent transition-colors appearance-none`}
+                      disabled={loading}
+                    >
+                      <option value="">Selecione uma categoria</option>
+                      {categorias.map(categoria => (
+                        <option key={categoria.id} value={categoria.id}>
+                          {categoria.nome}
+                        </option>
+                      ))}
+                    </select>
+                    {errors.categoria_id && (
+                      <p className="mt-1 text-sm text-red-400 flex items-center gap-1">
+                        <AlertCircle className="w-4 h-4" />
+                        {errors.categoria_id}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
 
-              {/* Pré-visualização da Imagem */}
-              {formData.imagem_url && (
+              {/* Seção 3: Imagem do Produto */}
+              <div className="space-y-6">
+                <h4 className="text-lg font-semibold text-white border-b border-gray-700/50 pb-2">
+                  Imagem do Produto
+                </h4>
+                
+                <ImageUploader
+                  onImageUploaded={handleImageUploaded}
+                  currentImage={formData.imagem_url}
+                  disabled={loading}
+                />
+
+                {/* Campo de URL para compatibilidade */}
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Pré-visualização
+                    Ou cole uma URL da imagem:
                   </label>
-                  <div className="bg-gray-900/50 rounded-lg p-4">
-                    <div className="aspect-video rounded-lg overflow-hidden bg-gray-800 flex items-center justify-center">
-                      <img
-                        src={formData.imagem_url}
-                        alt="Pré-visualização"
-                        className="max-h-64 object-contain"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = 'https://placehold.co/600x400/374151/9ca3af?text=Imagem+Inválida';
-                        }}
-                      />
+                  <input
+                    type="text"
+                    name="imagem_url"
+                    value={formData.imagem_url}
+                    onChange={handleChange}
+                    className="w-full bg-gray-900/50 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#e58840]/50 focus:border-transparent transition-colors"
+                    placeholder="https://exemplo.com/imagem.jpg"
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+
+              {/* Seção 4: Configurações */}
+              <div className="space-y-6">
+                <h4 className="text-lg font-semibold text-white border-b border-gray-700/50 pb-2">
+                  Configurações
+                </h4>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Posição */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Posição no Cardápio
+                    </label>
+                    <input
+                      type="number"
+                      name="posicao"
+                      value={formData.posicao}
+                      onChange={handleChange}
+                      min="1"
+                      className="w-full bg-gray-900/50 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#e58840]/50 focus:border-transparent transition-colors"
+                      disabled={loading}
+                    />
+                    <p className="mt-2 text-sm text-gray-400">
+                      Número que define a ordem no cardápio
+                    </p>
+                  </div>
+
+                  {/* Disponibilidade */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Status do Produto
+                    </label>
+                    <div className="flex items-center h-12">
+                      <label className="flex items-center cursor-pointer">
+                        <div className="relative">
+                          <input
+                            type="checkbox"
+                            name="disponivel"
+                            checked={formData.disponivel}
+                            onChange={handleChange}
+                            className="sr-only"
+                            disabled={loading}
+                          />
+                          <div className={`block w-14 h-8 rounded-full ${
+                            formData.disponivel ? 'bg-green-600' : 'bg-gray-700'
+                          } transition-colors`}></div>
+                          <div className={`absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${
+                            formData.disponivel ? 'transform translate-x-6' : ''
+                          }`}></div>
+                        </div>
+                        <div className="ml-3">
+                          <span className={`font-medium ${
+                            formData.disponivel ? 'text-green-400' : 'text-gray-400'
+                          }`}>
+                            {formData.disponivel ? 'Disponível' : 'Indisponível'}
+                          </span>
+                          <p className="text-sm text-gray-500">
+                            {formData.disponivel ? 'Visível no cardápio' : 'Oculto do cardápio'}
+                          </p>
+                        </div>
+                      </label>
                     </div>
                   </div>
                 </div>
-              )}
+              </div>
 
               {/* Botões */}
-              <div className="flex flex-col sm:flex-row gap-4 pt-4 border-t border-gray-700/50">
+              <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-gray-700/50">
                 <button
                   type="button"
                   onClick={onClose}
