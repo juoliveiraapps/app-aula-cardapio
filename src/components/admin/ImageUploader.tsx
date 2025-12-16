@@ -17,12 +17,30 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
   const [previewUrl, setPreviewUrl] = useState<string | null>(currentImage || null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Substitua com seu Cloud Name do Cloudinary
-  const CLOUD_NAME = 'seu-cloud-name-aqui';
-  const UPLOAD_PRESET = 'seu-upload-preset-aqui';
+  // Usando as variáveis de ambiente do Vite
+  const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+  const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+
+  // Verificar se as variáveis de ambiente estão configuradas
+  const validateCloudinaryConfig = () => {
+    if (!CLOUD_NAME || !UPLOAD_PRESET) {
+      console.error('❌ Configuração do Cloudinary não encontrada!');
+      console.log('CLOUD_NAME:', CLOUD_NAME);
+      console.log('UPLOAD_PRESET:', UPLOAD_PRESET);
+      return false;
+    }
+    return true;
+  };
 
   const handleFileSelect = () => {
     if (disabled) return;
+    
+    // Verificar configuração antes de permitir upload
+    if (!validateCloudinaryConfig()) {
+      alert('Configuração do Cloudinary não encontrada. Por favor, configure as variáveis de ambiente.');
+      return;
+    }
+    
     fileInputRef.current?.click();
   };
 
@@ -30,8 +48,14 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
     const file = event.target.files?.[0];
     if (!file) return;
 
+    // Verificar configuração
+    if (!validateCloudinaryConfig()) {
+      alert('Configuração do Cloudinary não encontrada. Não é possível fazer upload.');
+      return;
+    }
+
     // Validar tipo de arquivo
-    const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/jpg'];
     if (!validTypes.includes(file.type)) {
       alert('Por favor, selecione uma imagem válida (JPEG, PNG, WebP ou GIF)');
       return;
@@ -63,9 +87,16 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
       formData.append('upload_preset', UPLOAD_PRESET);
       formData.append('cloud_name', CLOUD_NAME);
       
-      // Para otimização de imagem
+      // Configurações opcionais para otimização
       formData.append('folder', 'cardapio-digital');
       formData.append('transformation', 'c_fill,w_800,h_600,q_auto:good');
+
+      console.log('🌤️ Fazendo upload para Cloudinary...', {
+        cloudName: CLOUD_NAME,
+        uploadPreset: UPLOAD_PRESET,
+        fileName: file.name,
+        fileSize: file.size
+      });
 
       const response = await fetch(
         `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
@@ -76,20 +107,41 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
       );
 
       if (!response.ok) {
-        throw new Error('Erro ao fazer upload da imagem');
+        const errorText = await response.text();
+        console.error('❌ Erro na resposta do Cloudinary:', errorText);
+        throw new Error(`Erro ao fazer upload: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
+      console.log('✅ Upload bem-sucedido:', {
+        url: data.secure_url,
+        publicId: data.public_id,
+        format: data.format
+      });
       
       // Retornar a URL otimizada
       const optimizedUrl = data.secure_url.replace('/upload/', '/upload/c_fill,w_800,h_600,q_auto:good/');
       
       onImageUploaded(optimizedUrl);
-      alert('Imagem enviada com sucesso!');
+      alert('✅ Imagem enviada com sucesso!');
       
     } catch (error) {
-      console.error('Erro no upload:', error);
-      alert('Erro ao fazer upload da imagem. Tente novamente.');
+      console.error('❌ Erro no upload:', error);
+      
+      // Mensagem de erro mais amigável
+      let errorMessage = 'Erro ao fazer upload da imagem. ';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('Failed to fetch')) {
+          errorMessage += 'Verifique sua conexão com a internet.';
+        } else if (error.message.includes('upload preset')) {
+          errorMessage += 'Configuração do Cloudinary incorreta.';
+        } else {
+          errorMessage += error.message;
+        }
+      }
+      
+      alert(errorMessage);
       setPreviewUrl(null);
     } finally {
       setUploading(false);
@@ -111,8 +163,14 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
   const handlePasteUrl = () => {
     const url = prompt('Cole a URL da imagem:');
     if (url) {
-      setPreviewUrl(url);
-      onImageUploaded(url);
+      // Validar URL
+      try {
+        new URL(url);
+        setPreviewUrl(url);
+        onImageUploaded(url);
+      } catch {
+        alert('Por favor, insira uma URL válida.');
+      }
     }
   };
 
@@ -128,6 +186,21 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
         disabled={disabled || uploading}
       />
 
+      {/* Mensagem de configuração */}
+      {(!CLOUD_NAME || !UPLOAD_PRESET) && (
+        <div className="bg-yellow-900/30 border border-yellow-800/50 rounded-lg p-4">
+          <div className="flex items-center space-x-3">
+            <span className="text-yellow-400 text-xl">⚠️</span>
+            <div>
+              <p className="text-yellow-400 font-medium">Cloudinary não configurado</p>
+              <p className="text-yellow-300/80 text-sm">
+                Configure as variáveis de ambiente VITE_CLOUDINARY_CLOUD_NAME e VITE_CLOUDINARY_UPLOAD_PRESET
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Área de preview */}
       <div className="relative">
         <div 
@@ -135,7 +208,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
             previewUrl 
               ? 'border-transparent' 
               : 'border-gray-600 hover:border-[#e58840]'
-          } transition-colors overflow-hidden bg-gray-900/50 flex items-center justify-center cursor-pointer ${
+          } transition-colors overflow-hidden bg-gray-900/50 flex items-center justify-center ${
             disabled || uploading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
           }`}
           onClick={handleFileSelect}
@@ -147,6 +220,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
                 alt="Preview"
                 className="w-full h-full object-cover"
                 onError={(e) => {
+                  console.error('❌ Erro ao carregar imagem:', previewUrl);
                   (e.target as HTMLImageElement).src = 'https://placehold.co/600x400/374151/9ca3af?text=Erro+na+imagem';
                 }}
               />
@@ -194,7 +268,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
         <button
           type="button"
           onClick={handleFileSelect}
-          disabled={disabled || uploading}
+          disabled={disabled || uploading || !CLOUD_NAME || !UPLOAD_PRESET}
           className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Upload className="w-4 h-4" />
@@ -214,8 +288,9 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
 
       {/* Dicas */}
       <div className="text-sm text-gray-400 space-y-1">
-        <p>• A imagem será otimizada automaticamente</p>
-        <p>• Tamanho recomendado: 800×600 pixels</p>
+        <p>• A imagem será otimizada automaticamente para 800×600 pixels</p>
+        <p>• Formatos suportados: JPG, PNG, WebP, GIF</p>
+        <p>• Tamanho máximo: 5MB</p>
         <p>• Você também pode colar uma URL diretamente</p>
       </div>
     </div>
