@@ -18,19 +18,51 @@ const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
   onClose,
   loading = false
 }) => {
-  console.log('✅ ProductFormMinimal RENDERIZADO com dados:', { initialData, categorias });
+  console.log('✅ ProductFormMinimal RENDERIZADO com dados:', { 
+    initialData, 
+    categorias,
+    totalCategorias: categorias.length,
+    primeiraCategoria: categorias[0] 
+  });
 
-  const [formData, setFormData] = useState({
-    nome: initialData?.nome || '',
-    descricao: initialData?.descricao || '',
-    preco: initialData?.preco ? Number(initialData.preco) : '',
-    categoria_id: initialData?.categoria_id || (categorias[0]?.id || ''),
-    disponivel: initialData?.disponivel !== false,
-    posicao: initialData?.posicao || 1,
-    imagem_url: initialData?.imagem_url || ''
+  // Debug: log das categorias
+  useEffect(() => {
+    console.log('📊 Categorias recebidas:', categorias.map(c => ({
+      id: c.id,
+      nome: c.nome,
+      tipoId: typeof c.id
+    })));
+  }, [categorias]);
+
+  // Estado com debug
+  const [formData, setFormData] = useState(() => {
+    const initialCategoriaId = initialData?.categoria_id || (categorias[0]?.id || '');
+    console.log('🔄 Inicializando formData:', {
+      initialCategoriaId,
+      hasInitialData: !!initialData,
+      defaultCategoria: categorias[0]?.id
+    });
+    
+    return {
+      nome: initialData?.nome || '',
+      descricao: initialData?.descricao || '',
+      preco: initialData?.preco ? Number(initialData.preco) : '',
+      categoria_id: initialCategoriaId,
+      disponivel: initialData?.disponivel !== false,
+      posicao: initialData?.posicao || 1,
+      imagem_url: initialData?.imagem_url || ''
+    };
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Monitorar mudanças no formData
+  useEffect(() => {
+    console.log('📈 formData atualizado:', {
+      ...formData,
+      categoriaNome: categorias.find(c => c.id === formData.categoria_id)?.nome
+    });
+  }, [formData, categorias]);
 
   // Impedir rolagem da página quando o modal estiver aberto
   useEffect(() => {
@@ -40,21 +72,40 @@ const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
     };
   }, []);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  // Handler específico para select com debug
+  const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    console.log('🎯 SELECT CHANGE - Evento:', {
+      name,
+      value,
+      targetValue: e.target.value,
+      eventType: e.type
+    });
+    
+    setFormData(prev => {
+      const newData = { ...prev, [name]: value };
+      console.log('🔄 Novo estado para', name, ':', newData[name]);
+      return newData;
+    });
+    
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
     
     if (type === 'checkbox') {
       const checked = (e.target as HTMLInputElement).checked;
       setFormData(prev => ({ ...prev, [name]: checked }));
     } else if (name === 'preco') {
-      // Permitir apenas números e ponto decimal
       const sanitizedValue = value.replace(/[^\d.,]/g, '').replace(',', '.');
       setFormData(prev => ({ ...prev, [name]: sanitizedValue }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
     
-    // Limpar erro ao digitar
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
     }
@@ -94,8 +145,8 @@ const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
     const productData = {
       ...formData,
       preco: Number(formData.preco),
-      id: initialData?.id || '', // Se tiver ID, é edição
-      opcoes: initialData?.opcoes || [] // Manter opções se existirem
+      id: initialData?.id || '',
+      opcoes: initialData?.opcoes || []
     };
     
     console.log('📤 Enviando dados do produto:', productData);
@@ -144,6 +195,9 @@ const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
       maximumFractionDigits: 2
     });
   };
+
+  // Encontrar categoria atual para display
+  const categoriaAtual = categorias.find(c => c.id === formData.categoria_id);
 
   return (
     <Portal>
@@ -267,27 +321,100 @@ const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
                     </p>
                   </div>
 
-                  {/* Categoria */}
+                  {/* Categoria - COM DEBUG E CORREÇÕES */}
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">
                       Categoria *
                     </label>
-                    <select
-                      name="categoria_id"
-                      value={formData.categoria_id}
-                      onChange={handleChange}
-                      className={`w-full bg-gray-900/50 border ${
-                        errors.categoria_id ? 'border-red-500' : 'border-gray-700'
-                      } rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#e58840]/50 focus:border-transparent transition-colors appearance-none`}
-                      disabled={loading}
-                    >
-                      <option value="">Selecione uma categoria</option>
-                      {categorias.map(categoria => (
-                        <option key={categoria.id} value={categoria.id}>
-                          {categoria.nome}
-                        </option>
-                      ))}
-                    </select>
+                    
+                    {/* Área de debug */}
+                    <div className="mb-2 p-2 bg-gray-900/30 rounded text-xs text-gray-400">
+                      <div className="grid grid-cols-2 gap-1">
+                        <div>ID selecionado: <span className="text-yellow-400">{formData.categoria_id || 'Nenhum'}</span></div>
+                        <div>Categoria: <span className="text-green-400">{categoriaAtual?.nome || 'Nenhuma'}</span></div>
+                        <div>Total: <span className="text-blue-400">{categorias.length}</span></div>
+                        <div>Tipo ID: <span className="text-purple-400">{typeof formData.categoria_id}</span></div>
+                      </div>
+                    </div>
+                    
+                    {/* Select corrigido */}
+                    <div className="relative">
+                      <select
+                        name="categoria_id"
+                        value={formData.categoria_id}
+                        onChange={handleSelectChange}
+                        onClick={(e) => {
+                          console.log('🖱️ Select clicado');
+                          e.stopPropagation();
+                        }}
+                        onMouseDown={(e) => {
+                          console.log('🖱️ Mouse down no select');
+                          e.stopPropagation();
+                        }}
+                        className={`w-full bg-gray-900/50 border ${
+                          errors.categoria_id ? 'border-red-500' : 'border-gray-700'
+                        } rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#e58840]/50 focus:border-transparent transition-colors appearance-none pr-10`}
+                        disabled={loading}
+                      >
+                        <option value="">Selecione uma categoria</option>
+                        {categorias.map(categoria => (
+                          <option 
+                            key={categoria.id} 
+                            value={categoria.id}
+                            className="py-2"
+                          >
+                            {categoria.nome}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </div>
+                    
+                    {/* Botões de teste */}
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (categorias[0]) {
+                            console.log('🔧 Forçando seleção da primeira categoria:', categorias[0].id);
+                            setFormData(prev => ({ ...prev, categoria_id: categorias[0].id }));
+                          }
+                        }}
+                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors"
+                      >
+                        Selecionar 1ª
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (categorias[1]) {
+                            console.log('🔧 Forçando seleção da segunda categoria:', categorias[1].id);
+                            setFormData(prev => ({ ...prev, categoria_id: categorias[1].id }));
+                          }
+                        }}
+                        className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs rounded transition-colors"
+                      >
+                        Selecionar 2ª
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          console.log('📋 Estado atual:', {
+                            formData,
+                            categoriaAtual,
+                            categorias
+                          });
+                        }}
+                        className="px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white text-xs rounded transition-colors"
+                      >
+                        Log Estado
+                      </button>
+                    </div>
+                    
                     {errors.categoria_id && (
                       <p className="mt-1 text-sm text-red-400 flex items-center gap-1">
                         <AlertCircle className="w-4 h-4" />
