@@ -1,10 +1,8 @@
-// No AdminCardapio, substitua a importação e o uso:
 import React, { useState } from 'react';
 import { Plus, RefreshCw } from 'lucide-react';
 import { useCardapioData } from '../hooks/useCardapioData';
 import { Produto } from '../types';
-// REMOVA: import ProductForm from '../components/admin/ProductForm';
-import ProductFormMinimal from '../components/admin/ProductFormMinimal'; // ADICIONE
+import ProductFormMinimal from '../components/admin/ProductFormMinimal';
 import ProductList from '../components/admin/ProductList';
 import { saveProductToSheet, deleteProductFromSheet } from '../services/adminService';
 
@@ -33,14 +31,13 @@ const AdminCardapio = () => {
       setProcessing(true);
       console.log('📝 Salvando produto:', productData);
       
-      // Simulando um salvamento para teste
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      console.log('✅ Produto salvo com sucesso!');
-      alert('Produto salvo com sucesso! (TESTE)');
+      const data = await saveProductToSheet(productData);
       
-      // Fechar o modal após salvar
-      setShowForm(false);
-      setEditingProduct(null);
+      console.log('✅ Produto salvo com sucesso:', data);
+      alert(data.message || 'Produto salvo com sucesso!');
+      
+      // Recarregar a página para atualizar os dados
+      window.location.reload();
       return true;
       
     } catch (err: any) {
@@ -92,85 +89,88 @@ const AdminCardapio = () => {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Cabeçalho */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-bold text-white">Produtos do Cardápio</h3>
-          <p className="text-gray-400">
-            {produtos.length} produtos cadastrados
-            {error && ` • Erro: ${error}`}
-          </p>
-        </div>
-        
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={refreshProducts}
-            disabled={loading || processing}
-            className="flex items-center space-x-2 px-3 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors disabled:opacity-50"
-            title="Atualizar lista"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">Atualizar</span>
-          </button>
+    <>
+      {/* Conteúdo principal */}
+      <div className="space-y-6">
+        {/* Cabeçalho */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-bold text-white">Produtos do Cardápio</h3>
+            <p className="text-gray-400">
+              {produtos.length} produtos cadastrados
+              {error && ` • Erro: ${error}`}
+            </p>
+          </div>
           
-          <button
-            onClick={handleNewProduct}
-            disabled={processing || categorias.length === 0}
-            className="flex items-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-[#e58840] to-[#e58840]/90 hover:from-[#e58840]/90 hover:to-[#e58840] text-[#400b0b] font-bold rounded-lg transition-all duration-300 disabled:opacity-50"
-            title={categorias.length === 0 ? 'Crie categorias primeiro' : 'Adicionar novo produto'}
-          >
-            <Plus className="w-4 h-4" />
-            <span>Novo Produto</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Mensagem de erro */}
-      {error && (
-        <div className="bg-red-900/30 border border-red-800/50 rounded-lg p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <span className="text-red-400">⚠️</span>
-              <p className="text-red-400">{error}</p>
-            </div>
+          <div className="flex items-center space-x-2">
             <button
               onClick={refreshProducts}
-              className="text-red-300 hover:text-white text-sm"
-              disabled={loading}
+              disabled={loading || processing}
+              className="flex items-center space-x-2 px-3 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors disabled:opacity-50"
+              title="Atualizar lista"
             >
-              Tentar novamente
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">Atualizar</span>
+            </button>
+            
+            <button
+              onClick={handleNewProduct}
+              disabled={processing || categorias.length === 0}
+              className="flex items-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-[#e58840] to-[#e58840]/90 hover:from-[#e58840]/90 hover:to-[#e58840] text-[#400b0b] font-bold rounded-lg transition-all duration-300 disabled:opacity-50"
+              title={categorias.length === 0 ? 'Crie categorias primeiro' : 'Adicionar novo produto'}
+            >
+              <Plus className="w-4 h-4" />
+              <span>Novo Produto</span>
             </button>
           </div>
         </div>
-      )}
 
-      {/* Aviso se não houver categorias */}
-      {categorias.length === 0 && (
-        <div className="bg-yellow-900/30 border border-yellow-800/50 rounded-lg p-4">
-          <div className="flex items-center space-x-3">
-            <span className="text-yellow-400 text-xl">⚠️</span>
-            <div>
-              <p className="text-yellow-400 font-medium">Crie categorias primeiro</p>
-              <p className="text-yellow-300/80 text-sm">
-                Você precisa criar pelo menos uma categoria antes de adicionar produtos.
-              </p>
+        {/* Mensagem de erro */}
+        {error && (
+          <div className="bg-red-900/30 border border-red-800/50 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <span className="text-red-400">⚠️</span>
+                <p className="text-red-400">{error}</p>
+              </div>
+              <button
+                onClick={refreshProducts}
+                className="text-red-300 hover:text-white text-sm"
+                disabled={loading}
+              >
+                Tentar novamente
+              </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Lista de Produtos */}
-      <ProductList
-        produtos={produtos}
-        categorias={categorias}
-        onEdit={handleEditProduct}
-        onDelete={handleDeleteProduct}
-        loading={loading && produtos.length === 0}
-        emptyMessage="Nenhum produto cadastrado. Comece criando seu primeiro produto!"
-      />
+        {/* Aviso se não houver categorias */}
+        {categorias.length === 0 && (
+          <div className="bg-yellow-900/30 border border-yellow-800/50 rounded-lg p-4">
+            <div className="flex items-center space-x-3">
+              <span className="text-yellow-400 text-xl">⚠️</span>
+              <div>
+                <p className="text-yellow-400 font-medium">Crie categorias primeiro</p>
+                <p className="text-yellow-300/80 text-sm">
+                  Você precisa criar pelo menos uma categoria antes de adicionar produtos.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
-      {/* Modal do Formulário - AGORA usando ProductFormMinimal */}
+        {/* Lista de Produtos */}
+        <ProductList
+          produtos={produtos}
+          categorias={categorias}
+          onEdit={handleEditProduct}
+          onDelete={handleDeleteProduct}
+          loading={loading && produtos.length === 0}
+          emptyMessage="Nenhum produto cadastrado. Comece criando seu primeiro produto!"
+        />
+      </div>
+
+      {/* Modal do Formulário - FORA do container principal */}
       {showForm && (
         <ProductFormMinimal
           initialData={editingProduct || undefined}
@@ -183,7 +183,7 @@ const AdminCardapio = () => {
           loading={processing}
         />
       )}
-    </div>
+    </>
   );
 };
 
