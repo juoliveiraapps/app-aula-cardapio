@@ -15,13 +15,35 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
 }) => {
   const [uploading, setUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(currentImage || null);
+  const [cloudinaryConfigured, setCloudinaryConfigured] = useState<boolean | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // DEBUG: Verificar ambiente
-  console.log('🔧 ImageUploader iniciado:', {
-    ENV_MODE: import.meta.env.MODE,
-    ENV_PROD: import.meta.env.PROD,
-  });
+  // Verificar se o Cloudinary está configurado ao montar o componente
+  React.useEffect(() => {
+    const checkCloudinaryConfig = async () => {
+      try {
+        const response = await fetch('/api?action=uploadImage', {
+          method: 'POST',
+          body: JSON.stringify({ checkConfig: true })
+        });
+
+        if (response.status === 500) {
+          const data = await response.json();
+          if (data.error === 'Cloudinary não configurado') {
+            setCloudinaryConfigured(false);
+            return;
+          }
+        }
+
+        setCloudinaryConfigured(true);
+      } catch (error) {
+        console.error('Erro ao verificar configuração do Cloudinary:', error);
+        setCloudinaryConfigured(false);
+      }
+    };
+
+    checkCloudinaryConfig();
+  }, []);
 
   const handleFileSelect = () => {
     if (disabled) return;
@@ -193,6 +215,40 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
 
   return (
     <div className="space-y-4">
+      {/* Alerta se Cloudinary não estiver configurado */}
+      {cloudinaryConfigured === false && (
+        <div className="bg-yellow-900/30 border border-yellow-800/50 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-yellow-400 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <h4 className="text-yellow-400 font-semibold mb-1">Cloudinary não configurado</h4>
+              <p className="text-yellow-300/90 text-sm mb-3">
+                O upload de imagens requer configuração do Cloudinary na Vercel.
+              </p>
+              <details className="text-sm text-yellow-300/80">
+                <summary className="cursor-pointer hover:text-yellow-200 mb-2">
+                  Ver instruções de configuração
+                </summary>
+                <ol className="list-decimal list-inside space-y-1 pl-2">
+                  <li>Acesse o painel da Vercel</li>
+                  <li>Vá em Settings → Environment Variables</li>
+                  <li>Adicione as variáveis:
+                    <ul className="list-disc list-inside pl-4 mt-1">
+                      <li><code className="bg-yellow-900/50 px-1 rounded">CLOUDINARY_CLOUD_NAME</code></li>
+                      <li><code className="bg-yellow-900/50 px-1 rounded">CLOUDINARY_UPLOAD_PRESET</code></li>
+                    </ul>
+                  </li>
+                  <li>Faça redeploy do projeto</li>
+                </ol>
+              </details>
+              <p className="text-yellow-300/90 text-sm mt-3">
+                Enquanto isso, você pode colar URLs de imagens diretamente abaixo.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Input de arquivo oculto */}
       <input
         type="file"
@@ -200,7 +256,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
         onChange={handleFileChange}
         accept="image/*"
         className="hidden"
-        disabled={disabled || uploading}
+        disabled={disabled || uploading || cloudinaryConfigured === false}
       />
 
       {/* Área de preview */}
@@ -270,8 +326,9 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
         <button
           type="button"
           onClick={handleFileSelect}
-          disabled={disabled || uploading}
+          disabled={disabled || uploading || cloudinaryConfigured === false}
           className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          title={cloudinaryConfigured === false ? 'Configure o Cloudinary primeiro' : ''}
         >
           <Upload className="w-4 h-4" />
           {displayUrl ? 'Trocar Imagem' : 'Selecionar Imagem'}

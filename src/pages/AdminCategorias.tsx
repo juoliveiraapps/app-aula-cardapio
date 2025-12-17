@@ -14,8 +14,9 @@ const AdminCategorias = () => {
   const [localError, setLocalError] = useState<string | null>(null);
 
   // Converter categorias para o formato do CategoryList
+  // IMPORTANTE: O hook useCardapioData retorna 'categoria_id', não 'id'
   const categories = categorias.map(cat => ({
-    id: cat.id || '',
+    id: cat.categoria_id || '', // Usar categoria_id do hook
     nome: cat.nome || '',
     descricao: cat.descricao || '',
     posicao: cat.posicao || 1,

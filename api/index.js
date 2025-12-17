@@ -219,9 +219,85 @@ if (req.method === 'GET') {
     if (req.method === 'POST') {
       console.log(`[POST] Ação: ${action}, Body:`, req.body);
 
+      // 🖼️ UPLOAD DE IMAGEM PARA CLOUDINARY
+      if (action === 'uploadImage') {
+        const CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME || '';
+        const CLOUDINARY_UPLOAD_PRESET = process.env.CLOUDINARY_UPLOAD_PRESET || '';
+
+        console.log('[CLOUDINARY] Verificando configuração:', {
+          cloudName: CLOUDINARY_CLOUD_NAME ? '✅' : '❌',
+          uploadPreset: CLOUDINARY_UPLOAD_PRESET ? '✅' : '❌'
+        });
+
+        if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
+          return res.status(500).json({
+            success: false,
+            error: 'Cloudinary não configurado',
+            message: 'Configure CLOUDINARY_CLOUD_NAME e CLOUDINARY_UPLOAD_PRESET no Vercel',
+            details: {
+              cloudName: !!CLOUDINARY_CLOUD_NAME,
+              uploadPreset: !!CLOUDINARY_UPLOAD_PRESET
+            }
+          });
+        }
+
+        try {
+          // Cloudinary aceita FormData diretamente
+          const formData = new FormData();
+
+          // Pegar o arquivo do body (Vercel já processa o FormData)
+          if (!req.body || !req.body.file) {
+            throw new Error('Nenhum arquivo foi enviado');
+          }
+
+          formData.append('file', req.body.file);
+          formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+          formData.append('folder', 'cardapio-digital');
+
+          const cloudinaryUrl = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
+
+          console.log('[CLOUDINARY] Enviando para:', cloudinaryUrl);
+
+          const uploadResponse = await fetch(cloudinaryUrl, {
+            method: 'POST',
+            body: formData
+          });
+
+          if (!uploadResponse.ok) {
+            const errorText = await uploadResponse.text();
+            console.error('[CLOUDINARY ERROR]:', errorText);
+            throw new Error(`Cloudinary upload failed: ${uploadResponse.status}`);
+          }
+
+          const uploadData = await uploadResponse.json();
+
+          console.log('[CLOUDINARY SUCCESS]:', {
+            url: uploadData.secure_url,
+            publicId: uploadData.public_id
+          });
+
+          return res.status(200).json({
+            success: true,
+            url: uploadData.secure_url,
+            public_id: uploadData.public_id,
+            format: uploadData.format,
+            width: uploadData.width,
+            height: uploadData.height
+          });
+
+        } catch (error) {
+          console.error('[CLOUDINARY UPLOAD ERROR]:', error);
+          return res.status(500).json({
+            success: false,
+            error: 'Erro no upload',
+            message: error.message
+          });
+        }
+      }
+
       // AÇÕES PERMITIDAS POST
       const allowedPostActions = [
-        'salvarPedido', 'atualizarStatus', 'saveProduct', 
+        'salvarPedido', 'atualizarStatus', 'saveProduct',
         'deleteProduct', 'salvarCategoria', 'deletarCategoria'
       ];
       
@@ -234,8 +310,38 @@ if (req.method === 'GET') {
 
       // URL do Google Script
       const url = `${GOOGLE_SCRIPT_URL}?action=${action}&key=${API_KEY}`;
-      
+
       console.log(`[POST] Enviando para: ${url}`);
+      console.log(`[POST] Body detalhado:`, JSON.stringify(req.body, null, 2));
+
+      // Validações específicas por ação
+      if (action === 'saveProduct') {
+        console.log('[PRODUTO] Operação:', req.body.id ? `UPDATE (id: ${req.body.id})` : 'INSERT');
+        console.log('[PRODUTO] Campos:', {
+          id: req.body.id || 'novo',
+          nome: req.body.nome,
+          categoria_id: req.body.categoria_id,
+          preco: req.body.preco,
+          disponivel: req.body.disponivel
+        });
+      }
+
+      if (action === 'deleteProduct') {
+        console.log('[PRODUTO DELETE] ID:', req.body.id);
+      }
+
+      if (action === 'salvarCategoria') {
+        console.log('[CATEGORIA] Operação:', req.body.id ? `UPDATE (id: ${req.body.id})` : 'INSERT');
+        console.log('[CATEGORIA] Campos:', {
+          id: req.body.id || 'novo',
+          nome: req.body.nome,
+          posicao: req.body.posicao
+        });
+      }
+
+      if (action === 'deletarCategoria') {
+        console.log('[CATEGORIA DELETE] ID:', req.body.id);
+      }
 
       const response = await fetch(url, {
         method: 'POST',
@@ -249,8 +355,9 @@ if (req.method === 'GET') {
       });
 
       const responseText = await response.text();
-      
-      console.log(`[POST Response - ${action}] Status: ${response.status}, Text:`, responseText);
+
+      console.log(`[POST Response - ${action}] Status: ${response.status}`);
+      console.log(`[POST Response - ${action}] Body:`, responseText.substring(0, 500));
       
       if (!response.ok) {
         console.error(`[POST ERROR - ${action}] Status ${response.status}:`, responseText.substring(0, 200));

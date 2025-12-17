@@ -8,7 +8,8 @@ export interface Configuracao {
 }
 
 export interface Categoria {
-  id: string;
+  id?: string; // Usado no admin
+  categoria_id?: string; // Retornado pela API
   nome: string;
   descricao?: string;
   posicao?: number;

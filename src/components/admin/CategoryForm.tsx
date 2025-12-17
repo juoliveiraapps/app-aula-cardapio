@@ -87,12 +87,21 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
-    
-    const success = await onSubmit(formData);
+
+    // Preparar dados para envio (incluir ID se estiver editando)
+    const dataToSubmit = {
+      ...formData,
+      ...(initialData?.id && { id: initialData.id })
+    };
+
+    console.log('[CategoryForm] Enviando dados:', dataToSubmit);
+    console.log('[CategoryForm] Modo:', initialData?.id ? 'UPDATE' : 'INSERT');
+
+    const success = await onSubmit(dataToSubmit);
     if (success) {
       // Reset form only on success
       if (!initialData?.id) {
