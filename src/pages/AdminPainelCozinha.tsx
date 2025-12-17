@@ -408,7 +408,7 @@ const AdminPainelCozinha: React.FC = () => {
               ←
             </Link>
             <div>
-              <h1 className="text-2xl font-bold">Painel da Cozinha</h1>
+              <h1 className="text-2xl font-bold">Painel da Cozinhaa</h1>
               <p className="text-gray-400 text-sm">
                 Atualizado: {ultimaAtualizacao} | {pedidos.length} pedidos
               </p>
