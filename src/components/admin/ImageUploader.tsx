@@ -17,46 +17,20 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
   const [previewUrl, setPreviewUrl] = useState<string | null>(currentImage || null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Usando as variáveis de ambiente do Vite
-  const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
-const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
-
-// DEBUG: Verificar se as variáveis estão carregando
-console.log('🔧 Cloudinary Config:', {
-  CLOUD_NAME: CLOUD_NAME ? `✅ Definido (${CLOUD_NAME.substring(0, 5)}...)` : '❌ NÃO DEFINIDO',
-  UPLOAD_PRESET: UPLOAD_PRESET ? `✅ Definido (${UPLOAD_PRESET.substring(0, 5)}...)` : '❌ NÃO DEFINIDO',
-  ENV_MODE: import.meta.env.MODE,
-  ENV_PROD: import.meta.env.PROD,
-});
-
-  // Verificar se as variáveis de ambiente estão configuradas
-  const validateCloudinaryConfig = () => {
-    if (!CLOUD_NAME || !UPLOAD_PRESET) {
-      console.error('❌ Configuração do Cloudinary não encontrada!');
-      return false;
-    }
-    return true;
-  };
+  // DEBUG: Verificar ambiente
+  console.log('🔧 ImageUploader iniciado:', {
+    ENV_MODE: import.meta.env.MODE,
+    ENV_PROD: import.meta.env.PROD,
+  });
 
   const handleFileSelect = () => {
     if (disabled) return;
-    
-    if (!validateCloudinaryConfig()) {
-      alert('Configuração do Cloudinary não encontrada. Por favor, configure as variáveis de ambiente.');
-      return;
-    }
-    
     fileInputRef.current?.click();
   };
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-
-    if (!validateCloudinaryConfig()) {
-      alert('Configuração do Cloudinary não encontrada. Não é possível fazer upload.');
-      return;
-    }
 
     // Validar tipo de arquivo
     const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/jpg'];
@@ -78,75 +52,69 @@ console.log('🔧 Cloudinary Config:', {
     };
     reader.readAsDataURL(file);
 
-    // Fazer upload para Cloudinary
-    await uploadToCloudinary(file);
+    // Fazer upload via API própria
+    await uploadViaAPI(file);
   };
 
-  const uploadToCloudinary = async (file: File) => {
+  const uploadViaAPI = async (file: File) => {
     setUploading(true);
 
     try {
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('upload_preset', UPLOAD_PRESET);
-      // Apenas cloud_name na URL, não no formData para unsigned upload
-      
-      // Parâmetros permitidos em unsigned upload
       formData.append('folder', 'cardapio-digital');
-      // Remova completamente o parâmetro 'transformation'
-      // Não adicione transformation aqui!
 
-      console.log('🌤️ Fazendo upload para Cloudinary...', {
-        cloudName: CLOUD_NAME,
-        uploadPreset: UPLOAD_PRESET,
+      console.log('🌤️ Enviando para API própria...', {
         fileName: file.name,
-        fileSize: file.size
+        fileSize: file.size,
+        fileType: file.type
       });
 
-      const response = await fetch(
-        `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
-        {
-          method: 'POST',
-          body: formData,
-        }
-      );
+      // Use SUA API como proxy
+      const response = await fetch('/api?action=uploadImage', {
+        method: 'POST',
+        body: formData,
+      });
+
+      console.log('📡 Resposta da API:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok
+      });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error('❌ Erro na resposta do Cloudinary:', errorData);
+        const errorText = await response.text();
+        console.error('❌ Erro na API:', errorText);
         
         let errorMessage = 'Erro ao fazer upload da imagem. ';
-        if (errorData.error?.message) {
-          errorMessage += errorData.error.message;
+        try {
+          const errorData = JSON.parse(errorText);
+          if (errorData.error?.message) {
+            errorMessage += errorData.error.message;
+          }
+        } catch {
+          errorMessage += `Status: ${response.status}`;
         }
         throw new Error(errorMessage);
       }
 
       const data = await response.json();
-      console.log('✅ Upload bem-sucedido:', {
-        url: data.secure_url,
+      console.log('✅ Upload via API bem-sucedido:', {
+        url: data.url,
         publicId: data.public_id,
-        format: data.format,
-        width: data.width,
-        height: data.height
+        success: data.success
       });
       
-      // Aplicar transformação na URL APÓS o upload
-      // Isso é permitido - manipulamos a URL, não enviamos no upload
-      const applyTransformations = (url: string) => {
-        // Adicionar transformações ao final da URL
-        const baseUrl = url.split('/upload/')[0];
-        const imagePath = url.split('/upload/')[1];
+      if (data.success && data.url) {
+        // Aplicar transformações na URL se for do Cloudinary
+        const optimizedUrl = optimizeCloudinaryUrl(data.url);
+        console.log('🔄 URL otimizada:', optimizedUrl);
         
-        // Transformações: crop fill 800x600, qualidade automática
-        return `${baseUrl}/upload/c_fill,w_800,h_600,q_auto:good/${imagePath}`;
-      };
-      
-      const optimizedUrl = applyTransformations(data.secure_url);
-      console.log('🔄 URL otimizada:', optimizedUrl);
-      
-      onImageUploaded(optimizedUrl);
-      alert('✅ Imagem enviada com sucesso!');
+        onImageUploaded(optimizedUrl);
+        alert('✅ Imagem enviada com sucesso!');
+      } else {
+        throw new Error('Resposta inválida da API');
+      }
       
     } catch (error) {
       console.error('❌ Erro no upload:', error);
@@ -158,6 +126,13 @@ console.log('🔧 Cloudinary Config:', {
       
       alert(errorMessage);
       setPreviewUrl(null);
+      
+      // Fallback: Permitir colar URL manualmente
+      setTimeout(() => {
+        if (confirm('Deseja colar uma URL da imagem manualmente?')) {
+          handlePasteUrl();
+        }
+      }, 500);
     } finally {
       setUploading(false);
       if (fileInputRef.current) {
@@ -187,8 +162,8 @@ console.log('🔧 Cloudinary Config:', {
     }
   };
 
-  // Função para aplicar transformações a qualquer URL do Cloudinary
-  const optimizeExistingUrl = (url: string) => {
+  // Função para aplicar transformações a URLs do Cloudinary
+  const optimizeCloudinaryUrl = (url: string) => {
     if (!url.includes('cloudinary.com')) return url;
     
     try {
@@ -198,6 +173,10 @@ console.log('🔧 Cloudinary Config:', {
       // Encontrar a posição de 'upload'
       const uploadIndex = pathParts.indexOf('upload');
       if (uploadIndex === -1) return url;
+      
+      // Verificar se já tem transformações
+      const hasTransformations = pathParts[uploadIndex + 1]?.includes('c_');
+      if (hasTransformations) return url;
       
       // Inserir transformações após 'upload'
       pathParts.splice(uploadIndex + 1, 0, 'c_fill,w_800,h_600,q_auto:good');
@@ -210,7 +189,7 @@ console.log('🔧 Cloudinary Config:', {
   };
 
   // Otimizar URL atual se for do Cloudinary
-  const displayUrl = previewUrl ? optimizeExistingUrl(previewUrl) : null;
+  const displayUrl = previewUrl ? optimizeCloudinaryUrl(previewUrl) : null;
 
   return (
     <div className="space-y-4">
@@ -223,25 +202,6 @@ console.log('🔧 Cloudinary Config:', {
         className="hidden"
         disabled={disabled || uploading}
       />
-
-      {/* Mensagem de configuração */}
-      {(!CLOUD_NAME || !UPLOAD_PRESET) && (
-        <div className="bg-yellow-900/30 border border-yellow-800/50 rounded-lg p-4">
-          <div className="flex items-center space-x-3">
-            <span className="text-yellow-400 text-xl">⚠️</span>
-            <div>
-              <p className="text-yellow-400 font-medium">Cloudinary não configurado</p>
-              <p className="text-yellow-300/80 text-sm">
-                Configure as variáveis de ambiente no arquivo .env:
-                <br />
-                VITE_CLOUDINARY_CLOUD_NAME=seu-cloud-name
-                <br />
-                VITE_CLOUDINARY_UPLOAD_PRESET=seu-upload-preset
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Área de preview */}
       <div className="relative">
@@ -310,7 +270,7 @@ console.log('🔧 Cloudinary Config:', {
         <button
           type="button"
           onClick={handleFileSelect}
-          disabled={disabled || uploading || !CLOUD_NAME || !UPLOAD_PRESET}
+          disabled={disabled || uploading}
           className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Upload className="w-4 h-4" />
@@ -332,7 +292,7 @@ console.log('🔧 Cloudinary Config:', {
       {uploading && (
         <div className="flex items-center justify-center gap-2 text-sm text-[#e58840]">
           <Loader2 className="w-4 h-4 animate-spin" />
-          <span>Enviando imagem para o Cloudinary...</span>
+          <span>Enviando imagem...</span>
         </div>
       )}
 
