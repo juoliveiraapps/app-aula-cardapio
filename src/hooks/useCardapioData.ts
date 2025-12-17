@@ -2,6 +2,19 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Config, Categoria, Produto, Bairro } from '../types';
 
+// Helper para detectar ambiente
+const getEnvironment = () => {
+  const hostname = window.location.hostname;
+  
+  if (hostname.includes('webcontainer-api.io')) {
+    return 'stackblitz';
+  } else if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return 'development';
+  } else {
+    return 'production';
+  }
+};
+
 export const useCardapioData = () => {
   const [config, setConfig] = useState<Partial<Config>>({
     moeda: 'BRL',
@@ -18,14 +31,121 @@ export const useCardapioData = () => {
       setLoading(true);
       setError(null);
 
-      console.log('🔗 Iniciando busca de dados...');
+      const environment = getEnvironment();
+      console.log('🔗 Ambiente detectado:', environment);
       
-      // FUNÇÃO PARA USAR SUA API PRÓPRIA
-      const buildUrl = (action: string) => {
-        const baseUrl = '/api';
-        return `${baseUrl}?action=${encodeURIComponent(action)}`;
-      };
+      // CONFIGURAÇÃO POR AMBIENTE
+      let buildUrl: (action: string) => string;
+      let useMockData = false;
+      
+      if (environment === 'stackblitz') {
+        console.log('🚀 StackBlitz detectado - usando Google Script direto');
+        // No StackBlitz, use o Google Script diretamente
+        const API_KEY = 'sua_chave_google_script'; // Coloque sua chave aqui
+        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/SEU_ID/exec'; // Coloque sua URL aqui
+        
+        buildUrl = (action: string) => 
+          `${GOOGLE_SCRIPT_URL}?action=${action}&key=${API_KEY}`;
+        
+      } else if (environment === 'development') {
+        console.log('💻 Desenvolvimento local - usando API local ou Google Script');
+        // Desenvolvimento local
+        const API_KEY = import.meta.env.VITE_API_KEY || '';
+        const GOOGLE_SCRIPT_URL = import.meta.env.VITE_GOOGLE_SCRIPT_URL || '';
+        
+        if (API_KEY && GOOGLE_SCRIPT_URL) {
+          buildUrl = (action: string) => 
+            `${GOOGLE_SCRIPT_URL}?action=${action}&key=${API_KEY}`;
+        } else {
+          console.warn('⚠️ Variáveis de ambiente não configuradas. Usando mock data.');
+          useMockData = true;
+        }
+        
+      } else {
+        console.log('🌐 Produção - usando API própria');
+        // Produção na Vercel
+        buildUrl = (action: string) => `/api?action=${encodeURIComponent(action)}`;
+      }
 
+      console.log('📡 Modo de operação:', useMockData ? 'Mock Data' : 'API Real');
+
+      // SE PRECISAR USAR DADOS MOCK (para desenvolvimento sem API)
+      if (useMockData) {
+        console.log('🔄 Carregando dados mock...');
+        
+        // Configuração mock
+        setConfig({
+          telefone_whatsapp: '5511999999999',
+          moeda: 'BRL',
+          nome_loja: 'Roast Coffee',
+          pedido_minimo_entrega: 25,
+          mensagem_retirada: 'Retire em 20 minutos'
+        });
+
+        // Categorias mock
+        const mockCategorias: Categoria[] = [
+          {
+            categoria_id: '1',
+            nome: 'Cafés',
+            descricao: 'Os melhores cafés da casa',
+            posicao: 1,
+            visivel: true,
+            icone_svg: 'M12 2v20 M17 5H9.5a3.5 3.5 0 1 0 0 7H14 M7 19H4'
+          },
+          {
+            categoria_id: '2',
+            nome: 'Bolos',
+            descricao: 'Deliciosos bolos caseiros',
+            posicao: 2,
+            visivel: true,
+            icone_svg: 'M12 2v20 M17 5H9.5a3.5 3.5 0 1 0 0 7H14 M7 19H4'
+          }
+        ];
+        setCategorias(mockCategorias);
+
+        // Produtos mock
+        const mockProdutos: Produto[] = [
+          {
+            produto_id: '1',
+            nome: 'Café Expresso',
+            descricao: 'Café forte e encorpado',
+            preco: 5.90,
+            imagem_url: 'https://images.unsplash.com/photo-1498804103079-a6351b050096?w=400&h=300&fit=crop',
+            categoria_id: '1',
+            disponivel: true,
+            posicao: 1,
+            opcoes: []
+          },
+          {
+            produto_id: '2',
+            nome: 'Cappuccino',
+            descricao: 'Café com leite vaporizado',
+            preco: 8.90,
+            imagem_url: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w-400&h=300&fit=crop',
+            categoria_id: '1',
+            disponivel: true,
+            posicao: 2,
+            opcoes: []
+          }
+        ];
+        setProdutos(mockProdutos);
+
+        // Bairros mock
+        setBairros([
+          {
+            id: '1',
+            nome: 'Centro',
+            taxa: 5.00,
+            tempo_entrega: '30-40 min',
+            ativo: true
+          }
+        ]);
+
+        setLoading(false);
+        return;
+      }
+
+      // SE USANDO API REAL
       console.log('📡 URLs das requisições:');
       console.log('- Config:', buildUrl('getConfig'));
       console.log('- Categorias:', buildUrl('getCategorias'));
@@ -57,12 +177,8 @@ export const useCardapioData = () => {
       const failedResponse = responses.find(r => !r.ok);
       if (failedResponse) {
         const errorText = await failedResponse.text();
-        console.error('❌ Erro na resposta:', {
-          status: failedResponse.status,
-          statusText: failedResponse.statusText,
-          text: errorText.substring(0, 200)
-        });
-        throw new Error(`Erro HTTP ${failedResponse.status}: ${failedResponse.statusText}`);
+        console.error('❌ Erro na resposta:', errorText.substring(0, 200));
+        throw new Error(`Erro HTTP ${failedResponse.status}`);
       }
 
       const [configData, categoriasData, produtosData, bairrosData] = await Promise.all([
@@ -72,7 +188,7 @@ export const useCardapioData = () => {
         bairrosRes.json()
       ]);
 
-      console.log('✅ Dados recebidos da API:', {
+      console.log('✅ Dados recebidos:', {
         config: configData,
         categoriasCount: Array.isArray(categoriasData) ? categoriasData.length : 0,
         produtosCount: Array.isArray(produtosData) ? produtosData.length : 0,
@@ -86,7 +202,6 @@ export const useCardapioData = () => {
       };
 
       if (Array.isArray(configData)) {
-        // Formato array
         if (configData.length > 0) {
           const configObj = configData[0];
           processedConfig = {
@@ -98,7 +213,6 @@ export const useCardapioData = () => {
           };
         }
       } else if (typeof configData === 'object' && configData !== null) {
-        // Formato objeto
         processedConfig = {
           telefone_whatsapp: configData.telefone_whatsapp || configData.whatsapp || '',
           moeda: configData.moeda || 'BRL',
@@ -108,7 +222,7 @@ export const useCardapioData = () => {
         };
       }
 
-      console.log('⚙️ Configuração processada:', processedConfig);
+      console.log('⚙️ Configuração:', processedConfig);
       setConfig(processedConfig);
 
       // Processar categorias
@@ -124,10 +238,9 @@ export const useCardapioData = () => {
         }));
       }
       
-      // Ordenar por posição
       processedCategorias.sort((a, b) => a.posicao - b.posicao);
       setCategorias(processedCategorias);
-      console.log('📁 Categorias carregadas:', processedCategorias.length);
+      console.log('📁 Categorias:', processedCategorias.length);
 
       // Processar produtos
       let processedProdutos: Produto[] = [];
@@ -148,7 +261,7 @@ export const useCardapioData = () => {
       }
       processedProdutos.sort((a, b) => a.posicao - b.posicao);
       setProdutos(processedProdutos);
-      console.log('🍽️ Produtos carregados:', processedProdutos.length);
+      console.log('🍽️ Produtos:', processedProdutos.length);
 
       // Processar bairros
       let processedBairros: Bairro[] = [];
@@ -164,33 +277,20 @@ export const useCardapioData = () => {
         }));
       }
       setBairros(processedBairros);
-      console.log('📍 Bairros carregados:', processedBairros.length);
+      console.log('📍 Bairros:', processedBairros.length);
 
     } catch (err: any) {
       console.error('❌ Erro ao buscar dados:', err);
       setError(err.message || 'Erro ao carregar dados do cardápio');
       
-      // Fallback para desenvolvimento
-      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        console.log('🔄 Usando fallback para desenvolvimento...');
-        setConfig({
-          telefone_whatsapp: '5511999999999',
-          moeda: 'BRL',
-          nome_loja: 'Roast Coffee',
-          pedido_minimo_entrega: 0,
-          mensagem_retirada: 'Retire em 15 minutos'
-        });
-        setCategorias([{
-          categoria_id: '1',
-          nome: 'Cafés',
-          descricao: 'Os melhores cafés',
-          posicao: 1,
-          visivel: true,
-          icone_svg: 'M12 2v20 M17 5H9.5a3.5 3.5 0 1 0 0 7H14 M7 19H4'
-        }]);
-        setProdutos([]);
-        setBairros([]);
-      }
+      // Fallback de emergência
+      setConfig({
+        telefone_whatsapp: '5511999999999',
+        moeda: 'BRL',
+        nome_loja: 'Roast Coffee',
+        pedido_minimo_entrega: 0,
+        mensagem_retirada: 'Retire em 15 minutos'
+      });
     } finally {
       setLoading(false);
     }
