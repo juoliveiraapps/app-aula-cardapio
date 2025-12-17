@@ -55,7 +55,7 @@ const CategoryList: React.FC<CategoryListProps> = ({
   if (!loading && categories.length === 0) {
     return (
       <div className="text-center py-12 bg-gray-800/30 rounded-xl border border-gray-700/50">
-      
+       
         <h3 className="text-xl font-bold text-gray-400 mb-2">
           {emptyMessage}
         </h3>
