@@ -18,6 +18,7 @@ interface CategoryFormProps {
 interface IconOption {
   name: string;
   path: string;
+  viewBox?: string;
 }
 
 const CategoryForm: React.FC<CategoryFormProps> = ({
@@ -36,7 +37,7 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
 
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
-  // Ícones pré-definidos para cafeteria
+  // Ícones pré-definidos para cafeteria (com viewBox adequado)
   const iconOptions: IconOption[] = [
     { name: 'Café', path: 'M12 2v20 M17 5H9.5a3.5 3.5 0 1 0 0 7H14 M7 19H4' },
     { name: 'Bolo', path: 'M6 2v2 M18 2v2 M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6 M3 10h18 M8 14h8' },
@@ -110,8 +111,34 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
     setFormData({ ...formData, icone_svg: path });
   };
 
-  // Renderizar ícone SVG
+  // Função corrigida para renderizar SVG path corretamente
   const renderIconSVG = (svgPath: string, size: number = 24) => {
+    // Dividir por espaços, mas manter comandos multi-parte juntos
+    const pathCommands = [];
+    let currentCommand = '';
+    
+    // Processar os comandos do path
+    const parts = svgPath.split(' ');
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      
+      // Se a parte começa com uma letra (comando), é um novo comando
+      if (part.match(/^[A-Za-z]/)) {
+        if (currentCommand) {
+          pathCommands.push(currentCommand.trim());
+        }
+        currentCommand = part;
+      } else {
+        // É parte do comando anterior
+        currentCommand += ' ' + part;
+      }
+    }
+    
+    // Adicionar o último comando
+    if (currentCommand) {
+      pathCommands.push(currentCommand.trim());
+    }
+    
     return (
       <svg
         width={size}
@@ -124,8 +151,43 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
         strokeLinejoin="round"
         className="text-gray-300"
       >
-        {svgPath.split(' ').map((path, index) => (
-          <path key={index} d={path} />
+        {pathCommands.map((command, index) => {
+          // Extrair o comando (M, L, C, etc.) e as coordenadas
+          const match = command.match(/^([A-Za-z])(.*)$/);
+          if (!match) return null;
+          
+          const [, cmd, coords] = match;
+          
+          return (
+            <path 
+              key={index} 
+              d={`${cmd}${coords}`}
+            />
+          );
+        })}
+      </svg>
+    );
+  };
+
+  // Função simplificada para renderizar os ícones na grid
+  const renderIconPreview = (svgPath: string, size: number = 20) => {
+    // Versão simplificada para a grid de ícones
+    const commands = svgPath.split(/(?=[A-Z])/).filter(cmd => cmd.trim());
+    
+    return (
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="text-gray-300"
+      >
+        {commands.map((command, index) => (
+          <path key={index} d={command.trim()} />
         ))}
       </svg>
     );
@@ -223,14 +285,16 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
             {/* Preview do ícone selecionado */}
             <div className="mb-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700">
               <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 bg-gray-800 rounded-lg flex items-center justify-center">
-                  {renderIconSVG(formData.icone_svg, 28)}
+                <div className="w-16 h-16 bg-gray-800 rounded-xl flex items-center justify-center border border-gray-700">
+                  {renderIconSVG(formData.icone_svg, 32)}
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm text-gray-400">Ícone selecionado:</p>
-                  <p className="text-gray-300 font-mono text-sm truncate">
-                    {formData.icone_svg}
-                  </p>
+                  <p className="text-sm text-gray-400 mb-1">Ícone selecionado:</p>
+                  <div className="p-3 bg-gray-900/50 rounded-lg border border-gray-700">
+                    <p className="text-gray-300 font-mono text-xs break-all">
+                      {formData.icone_svg}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -238,21 +302,24 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
             {/* Grid de ícones */}
             <div className="mb-6">
               <p className="text-sm text-gray-400 mb-3">Selecione um ícone:</p>
-              <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-3">
+              <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
                 {iconOptions.map((icon) => (
                   <button
                     key={icon.name}
                     type="button"
                     onClick={() => handleIconSelect(icon.path)}
-                    className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all ${
+                    className={`flex flex-col items-center justify-center p-2 rounded-lg border transition-all duration-200 ${
                       formData.icone_svg === icon.path
-                        ? 'bg-[#e58840]/20 border-[#e58840]'
+                        ? 'bg-[#e58840]/20 border-[#e58840] scale-105'
                         : 'bg-gray-900/50 border-gray-700 hover:bg-gray-800/50 hover:border-gray-600'
                     }`}
                     disabled={loading}
+                    title={icon.name}
                   >
-                    {renderIconSVG(icon.path, 20)}
-                    <span className="text-xs text-gray-400 mt-2 truncate w-full text-center">
+                    <div className="w-8 h-8 flex items-center justify-center mb-1">
+                      {renderIconPreview(icon.path, 16)}
+                    </div>
+                    <span className="text-xs text-gray-400 truncate w-full text-center">
                       {icon.name}
                     </span>
                   </button>
@@ -274,7 +341,7 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
                 disabled={loading}
               />
               <p className="mt-1 text-xs text-gray-500">
-                Formato SVG path: cada comando separado por espaço (M, L, C, etc.)
+                Formato SVG path: comandos como M, L, C, Q, A separados por espaço
               </p>
             </div>
           </div>
