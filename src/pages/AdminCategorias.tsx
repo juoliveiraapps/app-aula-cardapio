@@ -147,7 +147,7 @@ const AdminCategorias = () => {
       {/* Cabeçalho */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-2xl font-bold text-white mb-2">📁 Categorias do Cardápio</h3>
+          <h3 className="text-2xl font-bold text-white mb-2">Categorias do Cardápio</h3>
           <p className="text-gray-400">
             {categories.length} categorias cadastradas • 
             {categories.filter(c => c.visivel).length} visíveis
