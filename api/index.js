@@ -10,8 +10,8 @@ export default async function handler(req, res) {
   }
 
   // 🔧 VARIÁVEIS DE AMBIENTE
-  const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrEMAZ9jap-LMpi5_VrlZsVvpGyBwNzL6YAVPeG06ZSQDNsb7sIuj5UsWF2x4xzZt8MA/exec";
-  const API_KEY = "cce4d5770afe09d2c790dcca4272e1190462a6a574270b040c835889115c6914";
+  const GOOGLE_SCRIPT_URL = process.env.GOOGLE_SCRIPT_URL;
+  const API_KEY = process.env.API_KEY;
 
   // 🔍 LOGS DE DEBUG
   console.log('[API] =====================================');
