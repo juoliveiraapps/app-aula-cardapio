@@ -1,13 +1,13 @@
-// src/pages/AdminCategorias.tsx
 import React, { useState } from 'react';
 import { Plus, RefreshCw } from 'lucide-react';
 import { useCardapioData } from '../hooks/useCardapioData';
 import { Categoria } from '../types';
 import CategoryForm from '../components/admin/CategoryForm';
 import CategoryList from '../components/admin/CategoryList';
+import { saveProductToSheet, deleteProductFromSheet } from '../services/adminService';
 
 const AdminCategorias = () => {
-  const { categorias, loading, error, refetch } = useCardapioData();
+  const { categorias, loading, error } = useCardapioData();
   const [showForm, setShowForm] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Categoria | null>(null);
   const [processing, setProcessing] = useState(false);
@@ -30,7 +30,7 @@ const AdminCategorias = () => {
       console.log('📝 Salvando categoria:', categoryData);
       
       const API_KEY = "cce4d5770afe09d2c790dcca4272e1190462a6a574270b040c835889115c6914";
-      const API_URL = "https://script.google.com/macros/s/AKfycbzrEMAZ9jap-LMpi5_VrlZsVvpGyBwNzL6YAVPeG06ZSQDNsb7sIuj5UsWF2x4xzZt8MA/exec";
+      const API_URL = `${window.location.origin}/api`;
       
       const response = await fetch(`${API_URL}?action=salvarCategoria&key=${API_KEY}`, {
         method: 'POST',
@@ -44,18 +44,14 @@ const AdminCategorias = () => {
       const data = await response.json();
       
       if (data.success) {
-        console.log('✅ Categoria salva com sucesso:', data);
+        console.log('✅ Categoria salva com sucesso');
         alert(data.message || 'Categoria salva com sucesso!');
         
-        // Recarregar os dados usando refetch
-        await refetch();
-        
-        // Fechar o formulário
-        setShowForm(false);
-        setEditingCategory(null);
+        // Recarregar a página para atualizar os dados
+        window.location.reload();
         return true;
       } else {
-        throw new Error(data.error || data.message || 'Erro ao salvar categoria');
+        throw new Error(data.error || 'Erro ao salvar categoria');
       }
     } catch (err: any) {
       console.error('❌ Erro ao salvar categoria:', err);
@@ -78,7 +74,7 @@ const AdminCategorias = () => {
       console.log('🗑️ Deletando categoria ID:', id);
       
       const API_KEY = "cce4d5770afe09d2c790dcca4272e1190462a6a574270b040c835889115c6914";
-      const API_URL = "https://script.google.com/macros/s/AKfycbzrEMAZ9jap-LMpi5_VrlZsVvpGyBwNzL6YAVPeG06ZSQDNsb7sIuj5UsWF2x4xzZt8MA/exec";
+      const API_URL = `${window.location.origin}/api`;
       
       const response = await fetch(`${API_URL}?action=deletarCategoria&key=${API_KEY}`, {
         method: 'POST',
@@ -92,13 +88,13 @@ const AdminCategorias = () => {
       const data = await response.json();
       
       if (data.success) {
-        console.log('✅ Categoria deletada com sucesso:', data);
+        console.log('✅ Categoria deletada com sucesso');
         alert(data.message || 'Categoria deletada com sucesso!');
         
-        // Recarregar os dados usando refetch
-        await refetch();
+        // Recarregar a página para atualizar os dados
+        window.location.reload();
       } else {
-        throw new Error(data.error || data.message || 'Erro ao deletar categoria');
+        throw new Error(data.error || 'Erro ao deletar categoria');
       }
     } catch (err: any) {
       console.error('❌ Erro ao deletar categoria:', err);
@@ -118,8 +114,8 @@ const AdminCategorias = () => {
     setShowForm(true);
   };
 
-  const refreshCategories = async () => {
-    await refetch();
+  const refreshCategories = () => {
+    window.location.reload();
   };
 
   return (
