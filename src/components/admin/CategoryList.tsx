@@ -25,8 +25,11 @@ const CategoryList: React.FC<CategoryListProps> = ({
   loading = false,
   emptyMessage = 'Nenhuma categoria cadastrada'
 }) => {
-  // Renderizar ícone SVG
+  // Função corrigida para renderizar SVG path corretamente
   const renderIconSVG = (svgPath: string, size: number = 24) => {
+    // Dividir por comandos SVG (M, L, C, Q, etc.)
+    const commands = svgPath.split(/(?=[A-Z])/).filter(cmd => cmd.trim());
+    
     return (
       <svg
         width={size}
@@ -39,9 +42,11 @@ const CategoryList: React.FC<CategoryListProps> = ({
         strokeLinejoin="round"
         className="text-gray-300"
       >
-        {svgPath.split(' ').map((path, index) => (
-          <path key={index} d={path} />
-        ))}
+        {commands.map((command, index) => {
+          // Remover espaços em branco extras
+          const cleanCommand = command.trim();
+          return <path key={index} d={cleanCommand} />;
+        })}
       </svg>
     );
   };
@@ -103,11 +108,19 @@ const CategoryList: React.FC<CategoryListProps> = ({
         >
           <div className="flex items-start justify-between">
             <div className="flex items-center space-x-3">
-              {/* Ícone */}
-              <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
-                category.visivel ? 'bg-gray-900/70' : 'bg-gray-900/50'
+              {/* Ícone SVG */}
+              <div className={`w-12 h-12 rounded-lg flex items-center justify-center border ${
+                category.visivel 
+                  ? 'bg-gray-900/70 border-gray-700/50' 
+                  : 'bg-gray-900/50 border-gray-800/50'
               }`}>
-                {renderIconSVG(category.icone_svg, 24)}
+                <div className="w-8 h-8 flex items-center justify-center">
+                  {category.icone_svg && category.icone_svg.trim() ? (
+                    renderIconSVG(category.icone_svg, 24)
+                  ) : (
+                    <div className="text-gray-500 text-xl">📦</div>
+                  )}
+                </div>
               </div>
               
               {/* Informações */}
@@ -117,8 +130,8 @@ const CategoryList: React.FC<CategoryListProps> = ({
                     {category.nome}
                   </h4>
                   {!category.visivel && (
-                    <span className="text-xs px-1.5 py-0.5 bg-gray-700/50 text-gray-400 rounded">
-                      <EyeOff className="w-3 h-3 inline mr-1" />
+                    <span className="text-xs px-1.5 py-0.5 bg-gray-700/50 text-gray-400 rounded flex items-center">
+                      <EyeOff className="w-3 h-3 mr-1" />
                       Oculto
                     </span>
                   )}
@@ -156,9 +169,15 @@ const CategoryList: React.FC<CategoryListProps> = ({
                     )}
                   </span>
                   
-                  <span className="text-xs text-gray-500">
-                    ID: {category.id.substring(0, 8)}...
-                  </span>
+                  {/* Preview do código SVG (hover para ver completo) */}
+                  {category.icone_svg && (
+                    <span 
+                      className="text-xs px-2 py-1 bg-blue-900/30 text-blue-400 rounded truncate max-w-[80px] cursor-help"
+                      title={`SVG: ${category.icone_svg}`}
+                    >
+                      Ícone SVG
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -187,15 +206,20 @@ const CategoryList: React.FC<CategoryListProps> = ({
           {/* Status adicional */}
           <div className="mt-4 pt-3 border-t border-gray-700/30">
             <div className="flex items-center justify-between text-xs">
-              <div className="text-gray-500">
-                {category.visivel ? (
-                  <span className="text-green-400">✓ Visível para clientes</span>
-                ) : (
-                  <span className="text-red-400">✗ Oculto dos clientes</span>
-                )}
+              <div className="text-gray-500 flex items-center space-x-2">
+                <div className={`w-2 h-2 rounded-full ${
+                  category.visivel ? 'bg-green-500' : 'bg-gray-500'
+                }`}></div>
+                <span>
+                  {category.visivel ? (
+                    <span className="text-green-400">Visível para clientes</span>
+                  ) : (
+                    <span className="text-red-400">Oculto dos clientes</span>
+                  )}
+                </span>
               </div>
               <div className="text-gray-500">
-                Ordem: <span className="text-gray-300">{category.posicao}º</span>
+                Ordem: <span className="text-gray-300 font-medium">{category.posicao}º</span>
               </div>
             </div>
           </div>
