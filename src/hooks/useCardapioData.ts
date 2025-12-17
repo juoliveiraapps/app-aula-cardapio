@@ -100,14 +100,39 @@ export const useCardapioData = () => {
         bairrosCount: Array.isArray(bairrosData) ? bairrosData.length : 0
       });
 
-      // Processar configurações
-      setConfig({
-        telefone_whatsapp: configData.telefone_whatsapp || configData.whatsapp || '',
-        moeda: configData.moeda || 'BRL',
-        nome_loja: configData.nome_loja || configData.Loja || 'Coffee House',
-        pedido_minimo_entrega: configData.pedido_minimo_entrega || 0,
-        mensagem_retirada: configData.mensagem_retirada || 'Retire em 20 minutos'
-      });
+     setConfig({
+          telefone_whatsapp: configData.telefone_whatsapp || '',
+          moeda: configData.moeda || 'BRL',
+          nome_loja: configData.nome_loja || '',
+          pedido_minimo_entrega: configData.pedido_minimo_entrega || 0,
+          mensagem_retirada: configData.mensagem_retirada
+        });
+        setCategorias(Array.isArray(categoriasData) ? categoriasData : []);
+        setProdutos(Array.isArray(produtosData) ? produtosData : []);
+        setBairros(Array.isArray(bairrosData) ? bairrosData : []);
+
+      } catch (err: any) {
+        console.error('Erro ao buscar dados:', err);
+        setError(err.message || 'Erro ao carregar dados');
+        
+        // Fallback para evitar erros em produção
+        setConfig({
+          telefone_whatsapp: '5511999999999',
+          moeda: 'BRL',
+          nome_loja: 'Roast Coffee',
+          pedido_minimo_entrega: 0,
+          mensagem_retirada: 'Retire em 15 minutos'
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  return { config, categorias, produtos, bairros, loading, error };
+};
 
       // Processar categorias
       let processedCategorias: Categoria[] = [];
