@@ -300,9 +300,7 @@ const AdminPainelCozinha: React.FC = () => {
       <header className="bg-gray-800 border-b border-gray-700 p-4">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="flex items-center space-x-3">
-            <Link to="/" className="p-2 hover:bg-gray-700 rounded-lg transition-colors">
-              ←
-            </Link>
+            
             <div>
               <h1 className="text-2xl font-bold">Painel da Cozinha</h1>
               <p className="text-gray-400 text-sm">
