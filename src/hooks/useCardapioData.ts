@@ -4,24 +4,28 @@ import { Config, Categoria, Produto, Bairro } from '../types';
 
 // Helper para obter variáveis de ambiente de forma segura
 const getEnvVars = () => {
-  // Em desenvolvimento (Vite) - usa variáveis com prefixo VITE_
+  // Em desenvolvimento (Vite)
   if (typeof import.meta !== 'undefined' && import.meta.env) {
-    const viteMode = import.meta.env.MODE || 'development';
-    console.log('🚀 Ambiente Vite detectado, MODE:', viteMode);
-    
     return {
       apiKey: import.meta.env.VITE_API_KEY || '',
       googleScriptUrl: import.meta.env.VITE_GOOGLE_SCRIPT_URL || '',
-      isVite: true
+      // Fallback para deploy na Vercel
+      vercelApiKey: import.meta.env.API_KEY || '',
+      vercelGoogleScriptUrl: import.meta.env.GOOGLE_SCRIPT_URL || ''
     };
   }
   
-  // Em produção no Vercel - usa variáveis sem prefixo via API própria
-  return {
-    apiKey: '', // Não usamos mais, a API própria lida com isso
-    googleScriptUrl: '', // Usamos a API própria
-    isVite: false
-  };
+  // Em produção no Vercel (process.env)
+  if (typeof process !== 'undefined' && process.env) {
+    return {
+      apiKey: process.env.VITE_API_KEY || process.env.API_KEY || '',
+      googleScriptUrl: process.env.VITE_GOOGLE_SCRIPT_URL || process.env.GOOGLE_SCRIPT_URL || '',
+      vercelApiKey: '',
+      vercelGoogleScriptUrl: ''
+    };
+  }
+  
+  return { apiKey: '', googleScriptUrl: '', vercelApiKey: '', vercelGoogleScriptUrl: '' };
 };
 
 export const useCardapioData = () => {
@@ -45,39 +49,34 @@ export const useCardapioData = () => {
                    window.location.hostname === '127.0.0.1';
       
       console.log('🔗 Ambiente:', isDev ? 'DESENVOLVIMENTO' : 'PRODUÇÃO');
-      console.log('🔗 Modo Vite:', env.isVite);
-      console.log('🔗 Usando API própria:', !env.isVite);
+      console.log('🔗 Variáveis carregadas:', {
+        hasApiKey: !!(env.apiKey || env.vercelApiKey),
+        hasUrl: !!(env.googleScriptUrl || env.vercelGoogleScriptUrl),
+        urlLength: (env.googleScriptUrl || env.vercelGoogleScriptUrl)?.length
+      });
 
-      // AGORA SEMPRE USAMOS NOSSA PRÓPRIA API EM PRODUÇÃO
-      // Em desenvolvimento, podemos usar o Google Script direto ou nossa API local
+      // Construir URLs base
+      const apiKey = env.apiKey || env.vercelApiKey;
+      const googleScriptUrl = env.googleScriptUrl || env.vercelGoogleScriptUrl;
       
-      let baseUrl = '';
-      
-      if (isDev && env.isVite && env.googleScriptUrl) {
-        // Desenvolvimento local com Vite - usa Google Script direto
-        console.log('🔧 Modo: Desenvolvimento com Google Script direto');
-        const buildUrl = (action: string) => 
-          `${env.googleScriptUrl}?action=${action}&key=${env.apiKey}`;
-        
-        baseUrl = buildUrl;
-      } else {
-        // Produção ou sem variáveis - usa nossa própria API (/api)
-        console.log('🔧 Modo: Usando API própria (/api)');
-        const buildUrl = (action: string) => 
-          `/api?action=${action}`;
-        
-        baseUrl = buildUrl;
+      // Se não temos as variáveis necessárias
+      if (!apiKey || !googleScriptUrl) {
+        throw new Error('Variáveis de ambiente não configuradas. Verifique seu .env.local');
       }
 
+      // Função para construir URLs corretamente
+      const buildUrl = (action: string) => 
+        `${googleScriptUrl}?action=${action}&key=${apiKey}`;
+
       console.log('📡 URLs das requisições:');
-      console.log('- Config:', baseUrl('getConfig'));
+      console.log('- Config:', buildUrl('getConfig').substring(0, 100) + '...');
       
       // Fazer todas as requisições em paralelo
       const [configRes, categoriasRes, produtosRes, bairrosRes] = await Promise.all([
-        fetch(baseUrl('getConfig')),
-        fetch(baseUrl('getCategorias')),
-        fetch(baseUrl('getProdutos')),
-        fetch(baseUrl('getBairros'))
+        fetch(buildUrl('getConfig')),
+        fetch(buildUrl('getCategorias')),
+        fetch(buildUrl('getProdutos')),
+        fetch(buildUrl('getBairros'))
       ]);
 
       // Verificar respostas
@@ -101,33 +100,33 @@ export const useCardapioData = () => {
         bairrosCount: Array.isArray(bairrosData) ? bairrosData.length : 0
       });
 
-      let processedConfig: Partial<Config> = {
-        moeda: 'BRL',
-        pedido_minimo_entrega: 0
-      };
+let processedConfig: Partial<Config> = {
+  moeda: 'BRL',
+  pedido_minimo_entrega: 0
+};
 
-      if (Array.isArray(configData)) {
-        // Sua planilha retorna um array com um objeto
-        if (configData.length > 0) {
-          const configObj = configData[0];
-          processedConfig = {
-            telefone_whatsapp: configObj.telefone_whatsapp || configObj.whatsapp || '',
-            moeda: configObj.moeda || 'BRL',
-            nome_loja: configObj.nome_loja || configObj.Loja || 'Loja',
-            pedido_minimo_entrega: configObj.pedido_minimo_entrega || 0,
-            mensagem_retirada: configObj.mensagem_retirada || 'Retire em 20 minutos'
-          };
-        }
-      } else if (typeof configData === 'object' && configData !== null) {
-        // Formato objeto direto (menos comum)
-        processedConfig = {
-          telefone_whatsapp: configData.telefone_whatsapp || configData.whatsapp || '',
-          moeda: configData.moeda || 'BRL',
-          nome_loja: configData.nome_loja || configData.Loja || 'Loja',
-          pedido_minimo_entrega: configData.pedido_minimo_entrega || 0,
-          mensagem_retirada: configData.mensagem_retirada || 'Retire em 20 minutos'
-        };
-      }
+if (Array.isArray(configData)) {
+  // Sua planilha retorna um array com um objeto
+  if (configData.length > 0) {
+    const configObj = configData[0];
+    processedConfig = {
+      telefone_whatsapp: configObj.telefone_whatsapp || configObj.whatsapp || '',
+      moeda: configObj.moeda || 'BRL',
+      nome_loja: configObj.nome_loja || configObj.Loja || 'Loja',
+      pedido_minimo_entrega: configObj.pedido_minimo_entrega || 0,
+      mensagem_retirada: configObj.mensagem_retirada || 'Retire em 20 minutos'
+    };
+  }
+} else if (typeof configData === 'object' && configData !== null) {
+  // Formato objeto direto (menos comum)
+  processedConfig = {
+    telefone_whatsapp: configData.telefone_whatsapp || configData.whatsapp || '',
+    moeda: configData.moeda || 'BRL',
+    nome_loja: configData.nome_loja || configData.Loja || 'Loja',
+    pedido_minimo_entrega: configData.pedido_minimo_entrega || 0,
+    mensagem_retirada: configData.mensagem_retirada || 'Retire em 20 minutos'
+  };
+}
 
       // Processar categorias
       let processedCategorias: Categoria[] = [];
@@ -183,13 +182,10 @@ export const useCardapioData = () => {
       setBairros(processedBairros);
 
       console.log('📊 Dados processados:', {
-        config: processedConfig,
         categorias: processedCategorias.length,
         produtos: processedProdutos.length,
         bairros: processedBairros.length
       });
-
-      setConfig(processedConfig);
 
     } catch (err: any) {
       console.error('❌ Erro ao buscar dados:', err);
