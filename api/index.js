@@ -9,17 +9,32 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  // 🔧 VARIÁVEIS DE AMBIENTE
-const API_KEY = "cce4d5770afe09d2c790dcca4272e1190462a6a574270b040c835889115c6914";
-      const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrEMAZ9jap-LMpi5_VrlZsVvpGyBwNzL6YAVPeG06ZSQDNsb7sIuj5UsWF2x4xzZt8MA/exec";
-
-  // 🔍 LOGS DE DEBUG
+  // 🔧 VARIÁVEIS DE AMBIENTE DO VERCEL (SEM prefixo VITE_)
+  // ⚠️ ATENÇÃO: Use letras minúsculas ou maiúsculas consistentemente!
+  const API_KEY = process.env.API_KEY || '';
+  const GOOGLE_SCRIPT_URL = process.env.GOOGLE_SCRIPT_URL || '';
+  
+  // 🔍 LOGS DE DEBUG DAS VARIÁVEIS
   console.log('[API] =====================================');
   console.log('[API] Método:', req.method);
   console.log('[API] URL:', req.url);
-  console.log('[API] Query:', req.query);
-  console.log('[API] Body:', req.body ? 'Presente' : 'Vazio');
+  console.log('[API] API_KEY disponível:', API_KEY ? `✅ (${API_KEY.substring(0, 10)}...)` : '❌ NÃO');
+  console.log('[API] GOOGLE_SCRIPT_URL:', GOOGLE_SCRIPT_URL ? '✅ Disponível' : '❌ NÃO');
   console.log('[API] =====================================');
+
+  // 🔒 VALIDAÇÃO CRÍTICA DAS VARIÁVEIS
+  if (!API_KEY || !GOOGLE_SCRIPT_URL) {
+    console.error('[API ERROR] Variáveis de ambiente faltando!');
+    return res.status(500).json({
+      error: 'Configuração do servidor incompleta',
+      details: {
+        API_KEY: !!API_KEY,
+        GOOGLE_SCRIPT_URL: !!GOOGLE_SCRIPT_URL
+      },
+      message: 'Configure API_KEY e GOOGLE_SCRIPT_URL no painel do Vercel',
+      timestamp: new Date().toISOString()
+    });
+  }
 
   try {
     const { action } = req.query;
