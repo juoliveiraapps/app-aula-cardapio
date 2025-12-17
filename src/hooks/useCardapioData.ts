@@ -100,39 +100,33 @@ export const useCardapioData = () => {
         bairrosCount: Array.isArray(bairrosData) ? bairrosData.length : 0
       });
 
-     setConfig({
-          telefone_whatsapp: configData.telefone_whatsapp || '',
-          moeda: configData.moeda || 'BRL',
-          nome_loja: configData.nome_loja || '',
-          pedido_minimo_entrega: configData.pedido_minimo_entrega || 0,
-          mensagem_retirada: configData.mensagem_retirada
-        });
-        setCategorias(Array.isArray(categoriasData) ? categoriasData : []);
-        setProdutos(Array.isArray(produtosData) ? produtosData : []);
-        setBairros(Array.isArray(bairrosData) ? bairrosData : []);
-
-      } catch (err: any) {
-        console.error('Erro ao buscar dados:', err);
-        setError(err.message || 'Erro ao carregar dados');
-        
-        // Fallback para evitar erros em produção
-        setConfig({
-          telefone_whatsapp: '5511999999999',
-          moeda: 'BRL',
-          nome_loja: 'Roast Coffee',
-          pedido_minimo_entrega: 0,
-          mensagem_retirada: 'Retire em 15 minutos'
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, []);
-
-  return { config, categorias, produtos, bairros, loading, error };
+let processedConfig: Partial<Config> = {
+  moeda: 'BRL',
+  pedido_minimo_entrega: 0
 };
+
+if (Array.isArray(configData)) {
+  // Sua planilha retorna um array com um objeto
+  if (configData.length > 0) {
+    const configObj = configData[0];
+    processedConfig = {
+      telefone_whatsapp: configObj.telefone_whatsapp || configObj.whatsapp || '',
+      moeda: configObj.moeda || 'BRL',
+      nome_loja: configObj.nome_loja || configObj.Loja || 'Loja',
+      pedido_minimo_entrega: configObj.pedido_minimo_entrega || 0,
+      mensagem_retirada: configObj.mensagem_retirada || 'Retire em 20 minutos'
+    };
+  }
+} else if (typeof configData === 'object' && configData !== null) {
+  // Formato objeto direto (menos comum)
+  processedConfig = {
+    telefone_whatsapp: configData.telefone_whatsapp || configData.whatsapp || '',
+    moeda: configData.moeda || 'BRL',
+    nome_loja: configData.nome_loja || configData.Loja || 'Loja',
+    pedido_minimo_entrega: configData.pedido_minimo_entrega || 0,
+    mensagem_retirada: configData.mensagem_retirada || 'Retire em 20 minutos'
+  };
+}
 
       // Processar categorias
       let processedCategorias: Categoria[] = [];
