@@ -2,32 +2,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Config, Categoria, Produto, Bairro } from '../types';
 
-// Helper para obter variáveis de ambiente de forma segura
-const getEnvVars = () => {
-  // Em desenvolvimento (Vite)
-  if (typeof import.meta !== 'undefined' && import.meta.env) {
-    return {
-      apiKey: import.meta.env.VITE_API_KEY || '',
-      googleScriptUrl: import.meta.env.VITE_GOOGLE_SCRIPT_URL || '',
-      // Fallback para deploy na Vercel
-      vercelApiKey: import.meta.env.API_KEY || '',
-      vercelGoogleScriptUrl: import.meta.env.GOOGLE_SCRIPT_URL || ''
-    };
-  }
-  
-  // Em produção no Vercel (process.env)
-  if (typeof process !== 'undefined' && process.env) {
-    return {
-      apiKey: process.env.VITE_API_KEY || process.env.API_KEY || '',
-      googleScriptUrl: process.env.VITE_GOOGLE_SCRIPT_URL || process.env.GOOGLE_SCRIPT_URL || '',
-      vercelApiKey: '',
-      vercelGoogleScriptUrl: ''
-    };
-  }
-  
-  return { apiKey: '', googleScriptUrl: '', vercelApiKey: '', vercelGoogleScriptUrl: '' };
-};
-
 export const useCardapioData = () => {
   const [config, setConfig] = useState<Partial<Config>>({
     moeda: 'BRL',
@@ -44,32 +18,19 @@ export const useCardapioData = () => {
       setLoading(true);
       setError(null);
 
-      const env = getEnvVars();
-      const isDev = window.location.hostname === 'localhost' || 
-                   window.location.hostname === '127.0.0.1';
+      console.log('🔗 Iniciando busca de dados...');
       
-      console.log('🔗 Ambiente:', isDev ? 'DESENVOLVIMENTO' : 'PRODUÇÃO');
-      console.log('🔗 Variáveis carregadas:', {
-        hasApiKey: !!(env.apiKey || env.vercelApiKey),
-        hasUrl: !!(env.googleScriptUrl || env.vercelGoogleScriptUrl),
-        urlLength: (env.googleScriptUrl || env.vercelGoogleScriptUrl)?.length
-      });
-
-      // Construir URLs base
-      const apiKey = env.apiKey || env.vercelApiKey;
-      const googleScriptUrl = env.googleScriptUrl || env.vercelGoogleScriptUrl;
-      
-      // Se não temos as variáveis necessárias
-      if (!apiKey || !googleScriptUrl) {
-        throw new Error('Variáveis de ambiente não configuradas. Verifique seu .env.local');
-      }
-
-      // Função para construir URLs corretamente
-      const buildUrl = (action: string) => 
-        `${googleScriptUrl}?action=${action}&key=${apiKey}`;
+      // FUNÇÃO PARA USAR SUA API PRÓPRIA
+      const buildUrl = (action: string) => {
+        const baseUrl = '/api';
+        return `${baseUrl}?action=${encodeURIComponent(action)}`;
+      };
 
       console.log('📡 URLs das requisições:');
-      console.log('- Config:', buildUrl('getConfig').substring(0, 100) + '...');
+      console.log('- Config:', buildUrl('getConfig'));
+      console.log('- Categorias:', buildUrl('getCategorias'));
+      console.log('- Produtos:', buildUrl('getProdutos'));
+      console.log('- Bairros:', buildUrl('getBairros'));
       
       // Fazer todas as requisições em paralelo
       const [configRes, categoriasRes, produtosRes, bairrosRes] = await Promise.all([
@@ -81,9 +42,27 @@ export const useCardapioData = () => {
 
       // Verificar respostas
       const responses = [configRes, categoriasRes, produtosRes, bairrosRes];
+      
+      // DEBUG: Verificar cada resposta
+      responses.forEach((res, index) => {
+        const actions = ['getConfig', 'getCategorias', 'getProdutos', 'getBairros'];
+        console.log(`🔍 Response ${actions[index]}:`, {
+          status: res.status,
+          statusText: res.statusText,
+          ok: res.ok,
+          url: res.url
+        });
+      });
+
       const failedResponse = responses.find(r => !r.ok);
       if (failedResponse) {
-        throw new Error(`Erro HTTP ${failedResponse.status} em uma das requisições`);
+        const errorText = await failedResponse.text();
+        console.error('❌ Erro na resposta:', {
+          status: failedResponse.status,
+          statusText: failedResponse.statusText,
+          text: errorText.substring(0, 200)
+        });
+        throw new Error(`Erro HTTP ${failedResponse.status}: ${failedResponse.statusText}`);
       }
 
       const [configData, categoriasData, produtosData, bairrosData] = await Promise.all([
@@ -93,44 +72,47 @@ export const useCardapioData = () => {
         bairrosRes.json()
       ]);
 
-      console.log('✅ Dados recebidos:', {
+      console.log('✅ Dados recebidos da API:', {
         config: configData,
         categoriasCount: Array.isArray(categoriasData) ? categoriasData.length : 0,
         produtosCount: Array.isArray(produtosData) ? produtosData.length : 0,
         bairrosCount: Array.isArray(bairrosData) ? bairrosData.length : 0
       });
 
-let processedConfig: Partial<Config> = {
-  moeda: 'BRL',
-  pedido_minimo_entrega: 0
-};
+      // Processar configuração
+      let processedConfig: Partial<Config> = {
+        moeda: 'BRL',
+        pedido_minimo_entrega: 0
+      };
 
-if (Array.isArray(configData)) {
-  // Sua planilha retorna um array com um objeto
-  if (configData.length > 0) {
-    const configObj = configData[0];
-    processedConfig = {
-      telefone_whatsapp: configObj.telefone_whatsapp || configObj.whatsapp || '',
-      moeda: configObj.moeda || 'BRL',
-      nome_loja: configObj.nome_loja || configObj.Loja || 'Loja',
-      pedido_minimo_entrega: configObj.pedido_minimo_entrega || 0,
-      mensagem_retirada: configObj.mensagem_retirada || 'Retire em 20 minutos'
-    };
-  }
-} else if (typeof configData === 'object' && configData !== null) {
-  // Formato objeto direto (menos comum)
-  processedConfig = {
-    telefone_whatsapp: configData.telefone_whatsapp || configData.whatsapp || '',
-    moeda: configData.moeda || 'BRL',
-    nome_loja: configData.nome_loja || configData.Loja || 'Loja',
-    pedido_minimo_entrega: configData.pedido_minimo_entrega || 0,
-    mensagem_retirada: configData.mensagem_retirada || 'Retire em 20 minutos'
-  };
-}
+      if (Array.isArray(configData)) {
+        // Formato array
+        if (configData.length > 0) {
+          const configObj = configData[0];
+          processedConfig = {
+            telefone_whatsapp: configObj.telefone_whatsapp || configObj.whatsapp || '',
+            moeda: configObj.moeda || 'BRL',
+            nome_loja: configObj.nome_loja || configObj.Loja || 'Loja',
+            pedido_minimo_entrega: configObj.pedido_minimo_entrega || 0,
+            mensagem_retirada: configObj.mensagem_retirada || 'Retire em 20 minutos'
+          };
+        }
+      } else if (typeof configData === 'object' && configData !== null) {
+        // Formato objeto
+        processedConfig = {
+          telefone_whatsapp: configData.telefone_whatsapp || configData.whatsapp || '',
+          moeda: configData.moeda || 'BRL',
+          nome_loja: configData.nome_loja || configData.Loja || 'Loja',
+          pedido_minimo_entrega: configData.pedido_minimo_entrega || 0,
+          mensagem_retirada: configData.mensagem_retirada || 'Retire em 20 minutos'
+        };
+      }
+
+      console.log('⚙️ Configuração processada:', processedConfig);
+      setConfig(processedConfig);
 
       // Processar categorias
       let processedCategorias: Categoria[] = [];
-      
       if (Array.isArray(categoriasData)) {
         processedCategorias = categoriasData.map((cat: any) => ({
           categoria_id: cat.id?.toString() || cat.categoria_id?.toString() || '',
@@ -145,6 +127,7 @@ if (Array.isArray(configData)) {
       // Ordenar por posição
       processedCategorias.sort((a, b) => a.posicao - b.posicao);
       setCategorias(processedCategorias);
+      console.log('📁 Categorias carregadas:', processedCategorias.length);
 
       // Processar produtos
       let processedProdutos: Produto[] = [];
@@ -165,6 +148,7 @@ if (Array.isArray(configData)) {
       }
       processedProdutos.sort((a, b) => a.posicao - b.posicao);
       setProdutos(processedProdutos);
+      console.log('🍽️ Produtos carregados:', processedProdutos.length);
 
       // Processar bairros
       let processedBairros: Bairro[] = [];
@@ -180,28 +164,33 @@ if (Array.isArray(configData)) {
         }));
       }
       setBairros(processedBairros);
-
-      console.log('📊 Dados processados:', {
-        categorias: processedCategorias.length,
-        produtos: processedProdutos.length,
-        bairros: processedBairros.length
-      });
+      console.log('📍 Bairros carregados:', processedBairros.length);
 
     } catch (err: any) {
       console.error('❌ Erro ao buscar dados:', err);
       setError(err.message || 'Erro ao carregar dados do cardápio');
       
-      // Fallback para evitar erros em produção
-      setConfig({
-        telefone_whatsapp: '5511999999999',
-        moeda: 'BRL',
-        nome_loja: 'Roast Coffee',
-        pedido_minimo_entrega: 0,
-        mensagem_retirada: 'Retire em 15 minutos'
-      });
-      setCategorias([]);
-      setProdutos([]);
-      setBairros([]);
+      // Fallback para desenvolvimento
+      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        console.log('🔄 Usando fallback para desenvolvimento...');
+        setConfig({
+          telefone_whatsapp: '5511999999999',
+          moeda: 'BRL',
+          nome_loja: 'Roast Coffee',
+          pedido_minimo_entrega: 0,
+          mensagem_retirada: 'Retire em 15 minutos'
+        });
+        setCategorias([{
+          categoria_id: '1',
+          nome: 'Cafés',
+          descricao: 'Os melhores cafés',
+          posicao: 1,
+          visivel: true,
+          icone_svg: 'M12 2v20 M17 5H9.5a3.5 3.5 0 1 0 0 7H14 M7 19H4'
+        }]);
+        setProdutos([]);
+        setBairros([]);
+      }
     } finally {
       setLoading(false);
     }
