@@ -125,48 +125,74 @@ if (req.method === 'GET') {
     data = processedConfig;
   }
 
-  // Processamento de parceiros - ESTAVA FORA DESTE BLOCO!
-  if (action === 'getParceiros') {
-    console.log('[PARCEIROS DEBUG] Dados brutos do Google Script:', {
-      type: typeof data,
-      isArray: Array.isArray(data),
-      keys: data ? Object.keys(data) : 'no data'
-    });
+  // Processamento de parceiros
+if (action === 'getParceiros') {
+  console.log('[PARCEIROS DEBUG] Dados brutos do Google Script:', {
+    type: typeof data,
+    isArray: Array.isArray(data),
+    keys: data ? Object.keys(data) : 'no data',
+    rawData: data
+  });
+  
+  // Se a API retornar objeto com estrutura { success, total, parceiros }
+  if (data && typeof data === 'object' && data.success !== undefined) {
+    console.log(`[PARCEIROS] Formato objeto com sucesso: ${data.success}, total: ${data.total}`);
     
-    // Se a API retornar objeto com propriedade 'parceiros'
-    if (data && data.parceiros && Array.isArray(data.parceiros)) {
-      console.log(`[PARCEIROS] Formatando ${data.parceiros.length} parceiros`);
+    // Garantir que parceiros seja um array
+    if (data.parceiros && Array.isArray(data.parceiros)) {
+      console.log(`[PARCEIROS] ${data.parceiros.length} parceiros encontrados`);
+      
+      // Padronizar os nomes das propriedades (alguns têm "descrição" com acento)
+      const parceirosProcessados = data.parceiros.map(parceiro => ({
+        nome: parceiro.nome || '',
+        imagem: parceiro.imagem || '',
+        descricao: parceiro.descricao || parceiro.descrição || '' // Suporte para ambas as grafias
+      }));
+      
       data = {
         success: true,
-        parceiros: data.parceiros
+        total: parceirosProcessados.length,
+        parceiros: parceirosProcessados
       };
-    } 
-    // Se retornar array direto
-    else if (Array.isArray(data)) {
-      console.log(`[PARCEIROS] Array direto com ${data.length} parceiros`);
+    } else {
+      console.log('[PARCEIROS] Formato correto mas sem array de parceiros');
       data = {
         success: true,
-        parceiros: data
-      };
-    }
-    // Se não tiver parceiros
-    else {
-      console.log('[PARCEIROS] Sem parceiros ou formato inválido');
-      data = {
-        success: true,
+        total: 0,
         parceiros: []
       };
     }
+  } 
+  // Se retornar array direto (formato alternativo)
+  else if (Array.isArray(data)) {
+    console.log(`[PARCEIROS] Array direto com ${data.length} parceiros`);
+    
+    const parceirosProcessados = data.map(parceiro => ({
+      nome: parceiro.nome || '',
+      imagem: parceiro.imagem || '',
+      descricao: parceiro.descricao || parceiro.descrição || ''
+    }));
+    
+    data = {
+      success: true,
+      total: parceirosProcessados.length,
+      parceiros: parceirosProcessados
+    };
   }
-
-  console.log(`[GET SUCCESS] ${action}:`, 
-    action === 'getPedidos' 
-      ? `${data.pedidos?.length || 0} pedidos` 
-      : Array.isArray(data) ? `${data.length} items` : 'object'
-  );
-
-  return res.status(200).json(data);
+  // Se não tiver parceiros ou formato inválido
+  else {
+    console.log('[PARCEIROS] Formato inesperado:', typeof data);
+    data = {
+      success: true,
+      total: 0,
+      parceiros: []
+    };
+  }
+  
+  console.log('[PARCEIROS] Dados processados para frontend:', data);
 }
+
+  
     // 🔴 ROTA POST
     if (req.method === 'POST') {
       console.log(`[POST] Ação: ${action}, Body:`, req.body);
