@@ -139,9 +139,9 @@ export const useCardapioData = () => {
       setConfig({
         telefone_whatsapp: '5511999999999',
         moeda: 'BRL',
-        nome_loja: 'Roast Coffee',
+        nome_loja: 'Coffee House',
         pedido_minimo_entrega: 0,
-        mensagem_retirada: 'Retire em 15 minutos'
+        mensagem_retirada: 'Retire em 20 minutos'
       });
       setCategorias([]);
       setProdutos([]);
