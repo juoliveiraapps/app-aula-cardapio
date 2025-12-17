@@ -2,9 +2,31 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Config, Categoria, Produto, Bairro } from '../types';
 
-// Constantes diretas para evitar problemas com env vars
-const API_KEY = "cce4d5770afe09d2c790dcca4272e1190462a6a574270b040c835889115c6914";
-      const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrEMAZ9jap-LMpi5_VrlZsVvpGyBwNzL6YAVPeG06ZSQDNsb7sIuj5UsWF2x4xzZt8MA/exec";
+// Helper para obter variáveis de ambiente de forma segura
+const getEnvVars = () => {
+  // Em desenvolvimento (Vite)
+  if (typeof import.meta !== 'undefined' && import.meta.env) {
+    return {
+      apiKey: import.meta.env.VITE_API_KEY || '',
+      googleScriptUrl: import.meta.env.VITE_GOOGLE_SCRIPT_URL || '',
+      // Fallback para deploy na Vercel
+      vercelApiKey: import.meta.env.API_KEY || '',
+      vercelGoogleScriptUrl: import.meta.env.GOOGLE_SCRIPT_URL || ''
+    };
+  }
+  
+  // Em produção no Vercel (process.env)
+  if (typeof process !== 'undefined' && process.env) {
+    return {
+      apiKey: process.env.VITE_API_KEY || process.env.API_KEY || '',
+      googleScriptUrl: process.env.VITE_GOOGLE_SCRIPT_URL || process.env.GOOGLE_SCRIPT_URL || '',
+      vercelApiKey: '',
+      vercelGoogleScriptUrl: ''
+    };
+  }
+  
+  return { apiKey: '', googleScriptUrl: '', vercelApiKey: '', vercelGoogleScriptUrl: '' };
+};
 
 export const useCardapioData = () => {
   const [config, setConfig] = useState<Partial<Config>>({
@@ -22,20 +44,34 @@ export const useCardapioData = () => {
       setLoading(true);
       setError(null);
 
-      console.log('🔗 Buscando dados da API...');
-      
+      const env = getEnvVars();
       const isDev = window.location.hostname === 'localhost' || 
                    window.location.hostname === '127.0.0.1';
-
-      // Construir URLs - SEMPRE usa a URL direta do Google Script
-      const buildUrl = (action: string) => 
-        `${GOOGLE_SCRIPT_URL}?action=${action}&key=${API_KEY}`;
-
-      console.log('📡 URLs:', {
-        config: buildUrl('getConfig').substring(0, 100) + '...',
-        categorias: buildUrl('getCategorias').substring(0, 100) + '...'
+      
+      console.log('🔗 Ambiente:', isDev ? 'DESENVOLVIMENTO' : 'PRODUÇÃO');
+      console.log('🔗 Variáveis carregadas:', {
+        hasApiKey: !!(env.apiKey || env.vercelApiKey),
+        hasUrl: !!(env.googleScriptUrl || env.vercelGoogleScriptUrl),
+        urlLength: (env.googleScriptUrl || env.vercelGoogleScriptUrl)?.length
       });
 
+      // Construir URLs base
+      const apiKey = env.apiKey || env.vercelApiKey;
+      const googleScriptUrl = env.googleScriptUrl || env.vercelGoogleScriptUrl;
+      
+      // Se não temos as variáveis necessárias
+      if (!apiKey || !googleScriptUrl) {
+        throw new Error('Variáveis de ambiente não configuradas. Verifique seu .env.local');
+      }
+
+      // Função para construir URLs corretamente
+      const buildUrl = (action: string) => 
+        `${googleScriptUrl}?action=${action}&key=${apiKey}`;
+
+      console.log('📡 URLs das requisições:');
+      console.log('- Config:', buildUrl('getConfig').substring(0, 100) + '...');
+      
+      // Fazer todas as requisições em paralelo
       const [configRes, categoriasRes, produtosRes, bairrosRes] = await Promise.all([
         fetch(buildUrl('getConfig')),
         fetch(buildUrl('getCategorias')),
@@ -44,10 +80,11 @@ export const useCardapioData = () => {
       ]);
 
       // Verificar respostas
-      if (!configRes.ok) throw new Error(`Erro config: ${configRes.status}`);
-      if (!categoriasRes.ok) throw new Error(`Erro categorias: ${categoriasRes.status}`);
-      if (!produtosRes.ok) throw new Error(`Erro produtos: ${produtosRes.status}`);
-      if (!bairrosRes.ok) throw new Error(`Erro bairros: ${bairrosRes.status}`);
+      const responses = [configRes, categoriasRes, produtosRes, bairrosRes];
+      const failedResponse = responses.find(r => !r.ok);
+      if (failedResponse) {
+        throw new Error(`Erro HTTP ${failedResponse.status} em uma das requisições`);
+      }
 
       const [configData, categoriasData, produtosData, bairrosData] = await Promise.all([
         configRes.json(),
@@ -58,9 +95,9 @@ export const useCardapioData = () => {
 
       console.log('✅ Dados recebidos:', {
         config: configData,
-        categoriasCount: Array.isArray(categoriasData) ? categoriasData.length : 'não é array',
-        produtosCount: Array.isArray(produtosData) ? produtosData.length : 'não é array',
-        bairrosCount: Array.isArray(bairrosData) ? bairrosData.length : 'não é array'
+        categoriasCount: Array.isArray(categoriasData) ? categoriasData.length : 0,
+        produtosCount: Array.isArray(produtosData) ? produtosData.length : 0,
+        bairrosCount: Array.isArray(bairrosData) ? bairrosData.length : 0
       });
 
       // Processar configurações
@@ -77,7 +114,7 @@ export const useCardapioData = () => {
       
       if (Array.isArray(categoriasData)) {
         processedCategorias = categoriasData.map((cat: any) => ({
-          id: cat.id?.toString() || '',
+          categoria_id: cat.id?.toString() || cat.categoria_id?.toString() || '',
           nome: cat.nome?.toString() || '',
           descricao: cat.descricao?.toString() || '',
           posicao: parseInt(cat.posicao) || parseInt(cat.posição) || 1,
@@ -94,7 +131,7 @@ export const useCardapioData = () => {
       let processedProdutos: Produto[] = [];
       if (Array.isArray(produtosData)) {
         processedProdutos = produtosData.map((prod: any) => ({
-          id: prod.id?.toString() || prod.produto_id?.toString() || '',
+          produto_id: prod.id?.toString() || prod.produto_id?.toString() || '',
           nome: prod.nome?.toString() || '',
           descricao: prod.descricao?.toString() || '',
           preco: typeof prod.preco === 'string' 
@@ -125,7 +162,7 @@ export const useCardapioData = () => {
       }
       setBairros(processedBairros);
 
-      console.log('📊 Dados carregados:', {
+      console.log('📊 Dados processados:', {
         categorias: processedCategorias.length,
         produtos: processedProdutos.length,
         bairros: processedBairros.length
@@ -133,15 +170,15 @@ export const useCardapioData = () => {
 
     } catch (err: any) {
       console.error('❌ Erro ao buscar dados:', err);
-      setError(err.message || 'Erro ao carregar dados');
+      setError(err.message || 'Erro ao carregar dados do cardápio');
       
-      // Fallback
+      // Fallback para evitar erros em produção
       setConfig({
         telefone_whatsapp: '5511999999999',
         moeda: 'BRL',
-        nome_loja: 'Coffee House',
+        nome_loja: 'Roast Coffee',
         pedido_minimo_entrega: 0,
-        mensagem_retirada: 'Retire em 20 minutos'
+        mensagem_retirada: 'Retire em 15 minutos'
       });
       setCategorias([]);
       setProdutos([]);
