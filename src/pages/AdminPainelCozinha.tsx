@@ -1,9 +1,8 @@
-// src/pages/PainelCozinha.tsx - VERSÃO CORRIGIDA
-import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+// src/pages/PainelCozinha.tsx - VERSÃO COM STATUS FUNCIONAL
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 
-const AdminPainelCozinha: React.FC = () => {
-  const navigate = useNavigate();
+const PainelCozinha: React.FC = () => {
   const [pedidos, setPedidos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [abaAtiva, setAbaAtiva] = useState<'todos' | 'delivery' | 'retirada' | 'local'>('todos');
@@ -11,247 +10,171 @@ const AdminPainelCozinha: React.FC = () => {
   const [notificacaoAtiva, setNotificacaoAtiva] = useState(false);
   const [ultimoPedidoId, setUltimoPedidoId] = useState<string>('');
   const [pedidoProcessando, setPedidoProcessando] = useState<string | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  
-  // Obter variáveis de ambiente
-  const getEnvVar = () => {
-    // Em desenvolvimento
-    if (typeof import.meta !== 'undefined' && import.meta.env) {
-      return {
-        googleScriptUrl: import.meta.env.VITE_GOOGLE_SCRIPT_URL || '',
-        apiKey: import.meta.env.VITE_API_KEY || ''
-      };
+
+  // Construir URL da API - compatível com .env.local
+  const getApiUrl = (action: string) => {
+    // Desenvolvimento: usa proxy local
+    // Produção: usa variáveis de ambiente
+    const isDev = window.location.hostname === 'localhost' || 
+                  window.location.hostname === '127.0.0.1';
+    
+    if (isDev) {
+      return `/api?action=${action}`;
     }
     
-    // Em produção (Vercel)
-    if (typeof process !== 'undefined' && process.env) {
-      return {
-        googleScriptUrl: process.env.VITE_GOOGLE_SCRIPT_URL || process.env.GOOGLE_SCRIPT_URL || '',
-        apiKey: process.env.VITE_API_KEY || process.env.API_KEY || ''
-      };
+    // Usar variáveis de ambiente (Vite)
+    const apiKey = import.meta.env.VITE_API_KEY || '';
+    const scriptUrl = import.meta.env.VITE_GOOGLE_SCRIPT_URL || '';
+    
+    if (!apiKey || !scriptUrl) {
+      console.error('Variáveis de ambiente VITE_API_KEY ou VITE_GOOGLE_SCRIPT_URL não configuradas');
+      return `/api?action=${action}`; // Fallback para proxy
     }
     
-    return { googleScriptUrl: '', apiKey: '' };
+    return `${scriptUrl}?action=${action}&key=${apiKey}`;
   };
-  
-  const { googleScriptUrl, apiKey } = getEnvVar();
-  
-  // Verificar se tem as variáveis necessárias
-  useEffect(() => {
-    if (!googleScriptUrl || !apiKey) {
-      console.error('❌ Variáveis de ambiente não configuradas!');
-      console.error('Google Script URL:', googleScriptUrl ? 'OK' : 'FALTANDO');
-      console.error('API Key:', apiKey ? 'OK' : 'FALTANDO');
-      alert('Erro de configuração: Variáveis de ambiente não configuradas');
-    }
-  }, [googleScriptUrl, apiKey]);
-  
-  // Buscar pedidos - VERSÃO CORRIGIDA
+
+  // Buscar pedidos - VERSÃO SIMPLIFICADA
   const buscarPedidos = async () => {
     try {
-      console.log('🔄 Buscando pedidos...');
+      setLoading(true);
       
-      if (!googleScriptUrl || !apiKey) {
-        throw new Error('Variáveis de ambiente não configuradas');
-      }
+      const url = getApiUrl('getPedidos');
+      console.log('🔗 Buscando pedidos de:', url);
       
-      const url = `${googleScriptUrl}?action=getPedidos&key=${apiKey}`;
-      console.log('🔗 URL da API:', url);
-      
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json'
-        },
-        mode: 'cors'
-      });
-      
-      console.log('📊 Status da resposta:', response.status, response.statusText);
+      const response = await fetch(url);
       
       if (!response.ok) {
-        throw new Error(`Erro HTTP ${response.status}: ${response.statusText}`);
+        throw new Error(`Erro HTTP ${response.status}`);
       }
       
-      const responseText = await response.text();
-      console.log('📦 Resposta bruta:', responseText.substring(0, 200) + '...');
-      
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (jsonError) {
-        console.error('❌ Erro ao parsear JSON:', jsonError);
-        throw new Error('Resposta da API não é JSON válido');
-      }
-      
-      console.log('📊 Dados processados:', {
-        success: data.success,
-        total: data.total,
-        pedidosCount: data.pedidos?.length || 0
-      });
+      const data = await response.json();
+      console.log('📊 Pedidos recebidos:', data.pedidos?.length || 0);
       
       if (data.success && Array.isArray(data.pedidos)) {
-        const novosPedidos = data.pedidos || [];
+        const pedidosOrdenados = [...data.pedidos].sort((a, b) => {
+          const timeA = new Date(a.timestamp || 0).getTime();
+          const timeB = new Date(b.timestamp || 0).getTime();
+          return timeB - timeA;
+        });
         
-        if (novosPedidos.length > 0) {
-          // Ordenar por data (mais recente primeiro)
-          const pedidosOrdenados = [...novosPedidos].sort((a, b) => {
-            const timeA = new Date(a.timestamp || 0).getTime();
-            const timeB = new Date(b.timestamp || 0).getTime();
-            return timeB - timeA;
-          });
-          
-          // Pegar o pedido MAIS RECENTE
+        // Detectar novo pedido
+        if (pedidosOrdenados.length > 0) {
           const pedidoMaisRecente = pedidosOrdenados[0];
           const pedidoIdMaisRecente = pedidoMaisRecente?.pedido_id;
           
-          // DETECÇÃO DE NOVO PEDIDO (somente para pedidos com status "Recebido")
           if (pedidoIdMaisRecente && 
               pedidoIdMaisRecente !== ultimoPedidoId && 
               pedidoMaisRecente.status === 'Recebido') {
             
-            console.log('🚨 NOVO PEDIDO DETECTADO!', pedidoIdMaisRecente);
-            
-            // 1. Mostrar notificação visual
+            console.log('🚨 Novo pedido detectado:', pedidoIdMaisRecente);
             setNotificacaoAtiva(true);
+            setUltimoPedidoId(pedidoIdMaisRecente);
             
-            // 2. Notificação do navegador
+            // Notificação do navegador
             if ('Notification' in window && Notification.permission === 'granted') {
               new Notification(`Novo Pedido #${pedidoIdMaisRecente}`, {
-                body: `${pedidoMaisRecente.cliente || 'Cliente'} - ${pedidoMaisRecente.tipo || 'local'}`,
-                icon: '/logo-cardapio.png',
-                tag: `pedido-${pedidoIdMaisRecente}`
+                body: `${pedidoMaisRecente.cliente || 'Cliente'}`,
+                icon: '/logo-cardapio.png'
               });
             }
             
-            // Atualizar último ID
-            setUltimoPedidoId(pedidoIdMaisRecente);
-            
-            // Notificação automática some após 10 segundos
-            setTimeout(() => {
-              setNotificacaoAtiva(false);
-            }, 10000);
+            setTimeout(() => setNotificacaoAtiva(false), 10000);
           }
-          
-          // Se o pedido mais recente NÃO é "Recebido", parar notificação
-          if (pedidoMaisRecente.status !== 'Recebido' && notificacaoAtiva) {
-            setNotificacaoAtiva(false);
-          }
-          
-          // Atualizar estado dos pedidos
-          setPedidos(pedidosOrdenados);
-        } else {
-          // Sem pedidos
-          setPedidos([]);
         }
         
-        // Atualizar hora da última atualização
+        setPedidos(pedidosOrdenados);
+        
         setUltimaAtualizacao(new Date().toLocaleTimeString('pt-BR', {
           hour: '2-digit',
           minute: '2-digit',
           second: '2-digit'
         }));
-      } else {
-        console.error('❌ Formato de resposta inválido:', data);
-        setPedidos([]);
       }
-      
-    } catch (error: any) {
-      console.error('❌ Erro ao buscar pedidos:', error.message);
-      console.error('Stack:', error.stack);
-      
-      // Fallback: Tentar usar endpoint local /api
-      try {
-        console.log('🔄 Tentando fallback para /api endpoint...');
-        const fallbackResponse = await fetch(`/api?action=getPedidos&_=${Date.now()}`);
-        if (fallbackResponse.ok) {
-          const fallbackData = await fallbackResponse.json();
-          if (fallbackData.success && Array.isArray(fallbackData.pedidos)) {
-            setPedidos(fallbackData.pedidos);
-            console.log('✅ Fallback funcionou:', fallbackData.pedidos.length, 'pedidos');
-          }
-        }
-      } catch (fallbackError) {
-        console.error('❌ Fallback também falhou:', fallbackError);
-      }
+    } catch (error) {
+      console.error('❌ Erro ao buscar pedidos:', error);
     } finally {
       setLoading(false);
     }
   };
-  
+
   // Atualizar status - VERSÃO CORRIGIDA
   const atualizarStatus = async (pedidoId: string, novoStatus: string) => {
-    if (!googleScriptUrl || !apiKey) {
-      alert('Erro: Variáveis de ambiente não configuradas');
-      return;
-    }
-    
     try {
       console.log('📝 Atualizando status:', pedidoId, '->', novoStatus);
       
-      // Marcar pedido como processando
       setPedidoProcessando(pedidoId);
-      
-      // Parar notificação quando mudar status
       setNotificacaoAtiva(false);
       
-      // Chamar API direto do Google Script
-      const url = `${googleScriptUrl}?action=atualizarStatus&key=${apiKey}`;
+      const url = getApiUrl('atualizarStatus');
+      console.log('🔗 URL de atualização:', url);
       
-      console.log('🔗 URL da atualização:', url);
-      
+      // Método correto para Google Apps Script
       const response = await fetch(url, {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
+        headers: {
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ 
-          pedidoId: pedidoId.toString().trim(),
+          pedidoId: pedidoId.trim(),
           novoStatus: novoStatus.trim()
-        }),
-        mode: 'cors'
+        })
       });
       
-      console.log('📊 Status da atualização:', response.status);
+      console.log('📊 Resposta da atualização:', response.status);
       
       if (response.ok) {
         console.log('✅ Status atualizado com sucesso');
-        // Aguardar um pouco e recarregar
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        await buscarPedidos();
+        
+        // Atualizar o pedido localmente (otimização)
+        setPedidos(prevPedidos => 
+          prevPedidos.map(pedido => 
+            pedido.pedido_id === pedidoId 
+              ? { ...pedido, status: novoStatus, atualizado_em: new Date().toISOString() }
+              : pedido
+          )
+        );
+        
+        // Também buscar novamente após um delay
+        setTimeout(() => buscarPedidos(), 500);
       } else {
         const errorText = await response.text();
         console.error('❌ Erro na resposta:', errorText);
-        alert('Erro ao atualizar status: ' + errorText.substring(0, 100));
+        
+        // Tentar parsear como JSON
+        try {
+          const errorData = JSON.parse(errorText);
+          alert(`Erro: ${errorData.error || errorData.message || 'Erro desconhecido'}`);
+        } catch {
+          alert('Erro ao atualizar status. Tente novamente.');
+        }
       }
-    } catch (error: any) {
-      console.error('❌ Erro na requisição:', error.message);
-      alert('Erro de conexão: ' + error.message);
+    } catch (error) {
+      console.error('❌ Erro na requisição:', error);
+      alert('Erro de conexão. Verifique sua internet.');
     } finally {
       setPedidoProcessando(null);
     }
   };
-  
-  // Atualização automática a cada 10 segundos
+
+  // Atualização automática
   useEffect(() => {
-    // Buscar imediatamente
     buscarPedidos();
     
-    // Configurar intervalo
     const intervalId = setInterval(buscarPedidos, 10000);
     
     return () => {
       clearInterval(intervalId);
     };
-  }, [googleScriptUrl, apiKey]); // Dependência nas variáveis de ambiente
-  
-  // Filtrar pedidos por aba ativa
+  }, []);
+
+  // Filtrar pedidos
   const pedidosFiltrados = pedidos.filter(pedido => {
     if (abaAtiva === 'todos') return true;
     return pedido.tipo === abaAtiva;
   });
-  
-  // Formatar data para exibição
+
+  // Formatar data
   const formatarData = (dataString: string) => {
     try {
       const data = new Date(dataString);
@@ -263,33 +186,34 @@ const AdminPainelCozinha: React.FC = () => {
       return 'Agora';
     }
   };
-  
-  // Renderizar itens do pedido
+
+  // Renderizar itens
   const renderItens = (itens: any) => {
-    if (!itens) return <p className="text-gray-400">Sem itens</p>;
+    if (!itens) return <p className="text-gray-400 text-sm">Sem itens</p>;
     
     if (Array.isArray(itens)) {
       return (
         <div className="space-y-2">
           {itens.slice(0, 4).map((item: any, index: number) => {
             const quantidade = parseInt(item.quantidade) || 1;
-            const precoUnitario = parseFloat(item.precoUnitario) || parseFloat(item.preco) || 0;
+            const precoUnitario = parseFloat(item.precoUnitario) || 0;
             const precoTotal = parseFloat(item.precoTotal) || quantidade * precoUnitario;
             
             return (
-              <div key={index} className="text-sm">
+              <div key={index} className="text-sm border-b border-gray-700/50 pb-2 last:border-0">
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
-                    <span className="font-medium">{quantidade}x</span>
-                    <span className="ml-2">{item.nome || item.produto || 'Item'}</span>
+                    <div className="font-medium text-gray-300">
+                      {quantidade}x {item.nome || 'Item'}
+                    </div>
                     {item.opcoes && Array.isArray(item.opcoes) && item.opcoes.length > 0 && (
                       <div className="text-xs text-gray-400 mt-1">
                         {item.opcoes.join(', ')}
                       </div>
                     )}
                   </div>
-                  <div className="text-right ml-2 min-w-[80px]">
-                    <div className="font-medium">
+                  <div className="text-right ml-2">
+                    <div className="font-medium text-white">
                       R$ {precoTotal.toFixed(2)}
                     </div>
                   </div>
@@ -297,35 +221,20 @@ const AdminPainelCozinha: React.FC = () => {
               </div>
             );
           })}
+          
           {itens.length > 4 && (
-            <p className="text-xs text-gray-500">+ {itens.length - 4} itens...</p>
+            <p className="text-xs text-gray-500 pt-2">
+              + {itens.length - 4} itens...
+            </p>
           )}
         </div>
       );
     }
     
-    return <p className="text-gray-400 text-sm">Formato de itens inválido</p>;
+    return <p className="text-gray-400 text-sm">Formato inválido</p>;
   };
-  
-  // Calcular total do pedido
-  const calcularTotalPedido = (pedido: any) => {
-    if (pedido.total) {
-      return parseFloat(pedido.total);
-    }
-    
-    return 0;
-  };
-  
-  // Funções auxiliares para estilos (sem emojis)
-  const getTipoLabel = (tipo: string) => {
-    switch(tipo) {
-      case 'delivery': return 'Delivery';
-      case 'retirada': return 'Retirada';
-      case 'local': return 'Consumo Local';
-      default: return tipo;
-    }
-  };
-  
+
+  // Estilos auxiliares
   const getStatusClass = (status: string) => {
     switch(status) {
       case 'Recebido': return 'bg-yellow-900/30 text-yellow-400';
@@ -335,7 +244,7 @@ const AdminPainelCozinha: React.FC = () => {
       default: return 'bg-gray-800 text-gray-300';
     }
   };
-  
+
   const getTipoClass = (tipo: string) => {
     switch(tipo) {
       case 'delivery': return 'border-blue-500';
@@ -344,50 +253,41 @@ const AdminPainelCozinha: React.FC = () => {
       default: return 'border-gray-500';
     }
   };
-  
-  const getTipoTextClass = (tipo: string) => {
+
+  const getTipoLabel = (tipo: string) => {
     switch(tipo) {
-      case 'delivery': return 'text-blue-400';
-      case 'retirada': return 'text-green-400';
-      case 'local': return 'text-purple-400';
-      default: return 'text-gray-400';
+      case 'delivery': return 'Delivery';
+      case 'retirada': return 'Retirada';
+      case 'local': return 'Consumo Local';
+      default: return tipo;
     }
   };
-  
-  // Tela de loading
+
+  // Loading
   if (loading && pedidos.length === 0) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
         <div className="text-white text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
           <p>Carregando pedidos...</p>
-          {(!googleScriptUrl || !apiKey) && (
-            <p className="text-yellow-400 text-sm mt-2">
-              Verificando configuração da API...
-            </p>
-          )}
         </div>
       </div>
     );
   }
-  
+
   return (
     <div className="min-h-screen bg-gray-900 text-white">
-      {/* NOTIFICAÇÃO DE NOVO PEDIDO */}
+      {/* Notificação */}
       {notificacaoAtiva && (
         <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50">
           <div className="bg-gradient-to-r from-red-600 to-orange-600 text-white p-4 rounded-xl shadow-2xl max-w-lg">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
-                <div className="text-2xl">🔔</div>
-                <div>
-                  <h3 className="font-bold text-lg">NOVO PEDIDO RECEBIDO!</h3>
-                  <p className="text-sm">Verifique na lista abaixo</p>
-                </div>
+                <div className="font-bold text-lg">NOVO PEDIDO!</div>
               </div>
               <button 
                 onClick={() => setNotificacaoAtiva(false)}
-                className="text-white hover:text-yellow-300 text-xl"
+                className="text-white hover:text-yellow-300"
               >
                 ✕
               </button>
@@ -396,11 +296,13 @@ const AdminPainelCozinha: React.FC = () => {
         </div>
       )}
       
-      {/* CABEÇALHO */}
+      {/* Cabeçalho */}
       <header className="bg-gray-800 border-b border-gray-700 p-4">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="flex items-center space-x-3">
-            
+            <Link to="/" className="p-2 hover:bg-gray-700 rounded-lg transition-colors">
+              ←
+            </Link>
             <div>
               <h1 className="text-2xl font-bold">Painel da Cozinha</h1>
               <p className="text-gray-400 text-sm">
@@ -409,76 +311,69 @@ const AdminPainelCozinha: React.FC = () => {
             </div>
           </div>
           
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={buscarPedidos}
-              disabled={loading}
-              className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors disabled:opacity-50"
-            >
-              <span>↻</span>
-              <span>Atualizar</span>
-            </button>
-          </div>
+          <button
+            onClick={buscarPedidos}
+            disabled={loading}
+            className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
+          >
+            Atualizar
+          </button>
         </div>
       </header>
       
-      {/* CONTEÚDO PRINCIPAL */}
+      {/* Conteúdo */}
       <div className="max-w-7xl mx-auto p-4">
-        {/* ABAS DE FILTRO */}
+        {/* Abas */}
         <div className="flex space-x-2 mb-6 overflow-x-auto pb-2">
-          {[
-            { id: 'todos', label: 'Todos', count: pedidos.length },
-            { id: 'delivery', label: 'Delivery', count: pedidos.filter(p => p.tipo === 'delivery').length },
-            { id: 'retirada', label: 'Retirada', count: pedidos.filter(p => p.tipo === 'retirada').length },
-            { id: 'local', label: 'Local', count: pedidos.filter(p => p.tipo === 'local').length }
-          ].map((aba) => {
-            const isAtiva = abaAtiva === aba.id;
+          {['todos', 'delivery', 'retirada', 'local'].map((aba) => {
+            const isAtiva = abaAtiva === aba;
+            const count = aba === 'todos' 
+              ? pedidos.length 
+              : pedidos.filter(p => p.tipo === aba).length;
             
             return (
               <button
-                key={aba.id}
-                onClick={() => setAbaAtiva(aba.id as any)}
-                className={`flex items-center space-x-2 px-4 py-3 rounded-lg transition-colors whitespace-nowrap ${
-                  isAtiva
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                key={aba}
+                onClick={() => setAbaAtiva(aba as any)}
+                className={`flex items-center space-x-2 px-4 py-3 rounded-lg transition-colors ${
+                  isAtiva ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
                 }`}
               >
-                <span className="font-medium">{aba.label}</span>
+                <span className="font-medium capitalize">{aba}</span>
                 <span className={`px-2 py-1 text-xs rounded-full ${
                   isAtiva ? 'bg-white/20' : 'bg-gray-700'
                 }`}>
-                  {aba.count}
+                  {count}
                 </span>
               </button>
             );
           })}
         </div>
         
-        {/* LISTA DE PEDIDOS */}
+        {/* Lista de Pedidos */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {pedidosFiltrados.map((pedido, index) => {
             const tipoCor = getTipoClass(pedido.tipo);
-            const tipoTextCor = getTipoTextClass(pedido.tipo);
             const statusCor = getStatusClass(pedido.status || 'Recebido');
-            const totalPedido = calcularTotalPedido(pedido);
+            const totalPedido = parseFloat(pedido.total) || 0;
             const pedidoId = pedido.pedido_id || pedido.id || `PED${index}`;
             const estaProcessando = pedidoProcessando === pedidoId;
+            const itensArray = Array.isArray(pedido.itens) ? pedido.itens : [];
+            const totalItens = itensArray.reduce((total, item) => 
+              total + (parseInt(item.quantidade) || 1), 0);
             
             return (
               <div
                 key={pedidoId}
                 className={`bg-gray-800 rounded-xl border-l-4 ${tipoCor} p-4 space-y-4 ${
                   pedido.status === 'Recebido' ? 'ring-2 ring-yellow-500/50' : ''
-                } ${estaProcessando ? 'ring-2 ring-blue-500' : ''}`}
+                }`}
               >
-                {/* CABEÇALHO DO PEDIDO */}
+                {/* Cabeçalho */}
                 <div className="flex justify-between items-start">
                   <div>
-                    <div className="mb-1">
-                      <span className={`font-bold ${tipoTextCor}`}>
-                        {getTipoLabel(pedido.tipo)}
-                      </span>
+                    <div className="font-bold text-gray-400 mb-1">
+                      {getTipoLabel(pedido.tipo)}
                     </div>
                     <h3 className="text-xl font-bold">#{pedidoId}</h3>
                     <p className="text-gray-400 text-sm">
@@ -491,33 +386,29 @@ const AdminPainelCozinha: React.FC = () => {
                   </div>
                 </div>
                 
-                {/* INFORMAÇÕES DO CLIENTE */}
+                {/* Cliente */}
                 <div className="bg-gray-900/50 rounded-lg p-3">
-                  <div className="mb-2">
-                    <p className="font-medium truncate">{pedido.cliente || 'Cliente'}</p>
-                    {pedido.telefone && pedido.telefone !== 'Não informado' && (
-                      <p className="text-gray-400 text-sm">
-                        {pedido.telefone}
-                      </p>
-                    )}
-                  </div>
+                  <p className="font-medium truncate">{pedido.cliente || 'Cliente'}</p>
+                  {pedido.telefone && pedido.telefone !== 'Não informado' && (
+                    <p className="text-gray-400 text-sm mt-1">
+                      {pedido.telefone}
+                    </p>
+                  )}
                   
                   {pedido.tipo === 'delivery' && pedido.endereco && (
                     <p className="text-gray-400 text-sm mt-2 truncate">
                       {pedido.endereco}
-                      {pedido.numero && `, ${pedido.numero}`}
-                      {pedido.complemento && ` - ${pedido.complemento}`}
                     </p>
                   )}
                 </div>
                 
-                {/* ITENS DO PEDIDO */}
+                {/* Itens */}
                 <div>
-                  <h4 className="font-medium mb-2">Itens do Pedido</h4>
+                  <h4 className="font-medium mb-2">Itens ({totalItens})</h4>
                   {renderItens(pedido.itens)}
                 </div>
                 
-                {/* TOTAL E AÇÕES */}
+                {/* Total e Ações */}
                 <div className="pt-3 border-t border-gray-700">
                   <div className="flex justify-between items-center">
                     <div>
@@ -529,67 +420,43 @@ const AdminPainelCozinha: React.FC = () => {
                     <div className="flex space-x-2">
                       {pedido.status === 'Recebido' && (
                         <button
-                          onClick={() => !estaProcessando && atualizarStatus(pedidoId, 'Preparando')}
+                          onClick={() => atualizarStatus(pedidoId, 'Preparando')}
                           disabled={estaProcessando}
-                          className={`px-3 py-2 rounded-lg text-sm transition-colors flex items-center justify-center min-w-[90px] ${
+                          className={`px-3 py-2 rounded-lg text-sm transition-colors min-w-[90px] ${
                             estaProcessando
                               ? 'bg-orange-700 cursor-not-allowed'
                               : 'bg-orange-600 hover:bg-orange-700'
                           }`}
                         >
-                          {estaProcessando ? (
-                            <>
-                              <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                              </svg>
-                              Processando...
-                            </>
-                          ) : 'Preparar'}
+                          {estaProcessando ? 'Processando...' : 'Preparar'}
                         </button>
                       )}
                       
                       {pedido.status === 'Preparando' && (
                         <button
-                          onClick={() => !estaProcessando && atualizarStatus(pedidoId, 'Pronto')}
+                          onClick={() => atualizarStatus(pedidoId, 'Pronto')}
                           disabled={estaProcessando}
-                          className={`px-3 py-2 rounded-lg text-sm transition-colors flex items-center justify-center min-w-[90px] ${
+                          className={`px-3 py-2 rounded-lg text-sm transition-colors min-w-[90px] ${
                             estaProcessando
                               ? 'bg-teal-700 cursor-not-allowed'
                               : 'bg-teal-600 hover:bg-teal-700'
                           }`}
                         >
-                          {estaProcessando ? (
-                            <>
-                              <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                              </svg>
-                              Processando...
-                            </>
-                          ) : 'Pronto'}
+                          {estaProcessando ? 'Processando...' : 'Pronto'}
                         </button>
                       )}
                       
                       {pedido.status === 'Pronto' && (
                         <button
-                          onClick={() => !estaProcessando && atualizarStatus(pedidoId, 'Entregue')}
+                          onClick={() => atualizarStatus(pedidoId, 'Entregue')}
                           disabled={estaProcessando}
-                          className={`px-3 py-2 rounded-lg text-sm transition-colors flex items-center justify-center min-w-[90px] ${
+                          className={`px-3 py-2 rounded-lg text-sm transition-colors min-w-[90px] ${
                             estaProcessando
                               ? 'bg-gray-700 cursor-not-allowed'
                               : 'bg-gray-600 hover:bg-gray-700'
                           }`}
                         >
-                          {estaProcessando ? (
-                            <>
-                              <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                              </svg>
-                              Processando...
-                            </>
-                          ) : 'Entregue'}
+                          {estaProcessando ? 'Processando...' : 'Entregue'}
                         </button>
                       )}
                     </div>
@@ -600,23 +467,23 @@ const AdminPainelCozinha: React.FC = () => {
           })}
         </div>
         
-        {/* MENSAGEM PARA LISTA VAZIA */}
+        {/* Lista Vazia */}
         {pedidosFiltrados.length === 0 && !loading && (
           <div className="text-center py-12">
             <h3 className="text-xl font-bold text-gray-400 mb-2">
               Nenhum pedido {abaAtiva !== 'todos' ? `de ${abaAtiva}` : ''}
             </h3>
             <p className="text-gray-500">
-              Os pedidos aparecerão aqui automaticamente quando forem feitos.
+              Os pedidos aparecerão aqui automaticamente.
             </p>
           </div>
         )}
       </div>
       
-      {/* RODAPÉ */}
+      {/* Rodapé */}
       <footer className="bg-gray-800 border-t border-gray-700 p-4 mt-8">
         <div className="max-w-7xl mx-auto text-center text-gray-500 text-sm">
-          <p>Painel da Cozinha • Atualiza automaticamente a cada 10 segundos</p>
+          <p>Painel da Cozinha • Atualiza a cada 10 segundos</p>
           <p className="mt-1">
             Recebidos: {pedidos.filter(p => p.status === 'Recebido').length} • 
             Preparando: {pedidos.filter(p => p.status === 'Preparando').length} • 
@@ -628,4 +495,4 @@ const AdminPainelCozinha: React.FC = () => {
   );
 };
 
-export default AdminPainelCozinha;
+export default PainelCozinha;
