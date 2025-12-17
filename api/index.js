@@ -49,123 +49,61 @@ export default async function handler(req, res) {
       });
     }
 
-   // 🔵 ROTA GET
-if (req.method === 'GET') {
-  // AÇÕES PERMITIDAS GET
-  const allowedGetActions = [
-    'getConfig', 'getCategorias', 'getProdutos', 
-    'getBairros', 'getPedidos', 'getParceiros'
-  ];
-  
-  if (!allowedGetActions.includes(action)) {
-    return res.status(400).json({
-      error: 'Ação GET não permitida',
-      acoes_permitidas: allowedGetActions
-    });
-  }
+    // 🔵 ROTA GET
+    if (req.method === 'GET') {
+      // AÇÕES PERMITIDAS GET
+      const allowedGetActions = [
+        'getConfig', 'getCategorias', 'getProdutos', 
+        'getBairros', 'getPedidos', 'getParceiros'
+      ];
+      
+      if (!allowedGetActions.includes(action)) {
+        return res.status(400).json({
+          error: 'Ação GET não permitida',
+          acoes_permitidas: allowedGetActions
+        });
+      }
 
-  // URL do Google Script
-  const url = `${GOOGLE_SCRIPT_URL}?action=${encodeURIComponent(action)}&key=${API_KEY}`;
-  console.log(`[GET] Fetching: ${url}`);
+      // URL do Google Script
+      const url = `${GOOGLE_SCRIPT_URL}?action=${encodeURIComponent(action)}&key=${API_KEY}`;
+      console.log(`[GET] Fetching: ${url}`);
 
-  const response = await fetch(url, {
-    method: 'GET',
-    redirect: 'follow',
-    headers: {
-      'Accept': 'application/json',
-      'User-Agent': 'Mozilla/5.0'
+      const response = await fetch(url, {
+        method: 'GET',
+        redirect: 'follow',
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'Mozilla/5.0'
+        }
+      });
+
+      const responseText = await response.text();
+      
+      console.log(`[GET Response] Status: ${response.status}, Length: ${responseText.length} chars`);
+      
+      if (!response.ok) {
+        console.error(`[GET ERROR] Status ${response.status}:`, responseText.substring(0, 500));
+        throw new Error(`Google Script returned ${response.status}`);
+      }
+
+      // Tentar parsear como JSON
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (jsonError) {
+        console.error('[JSON Parse Error] Response:', responseText.substring(0, 500));
+        throw new Error(`Invalid JSON response from Google Script`);
+      }
+
+      console.log(`[GET SUCCESS] ${action}:`, 
+        action === 'getPedidos' 
+          ? `${data.pedidos?.length || 0} pedidos` 
+          : Array.isArray(data) ? `${data.length} items` : 'object'
+      );
+
+      return res.status(200).json(data);
     }
-  });
 
-  const responseText = await response.text();
-  
-  console.log(`[GET Response] Status: ${response.status}, Length: ${responseText.length} chars`);
-  
-  if (!response.ok) {
-    console.error(`[GET ERROR] Status ${response.status}:`, responseText.substring(0, 500));
-    throw new Error(`Google Script returned ${response.status}`);
-  }
-
-  // Tentar parsear como JSON
-  let data;
-  try {
-    data = JSON.parse(responseText);
-  } catch (jsonError) {
-    console.error('[JSON Parse Error] Response:', responseText.substring(0, 500));
-    throw new Error(`Invalid JSON response from Google Script`);
-  }
-
-
-  if (action === 'getConfig') {
-    console.log('[CONFIG DEBUG] Dados brutos do Google Script:', {
-      type: typeof data,
-      isArray: Array.isArray(data),
-      keys: data ? Object.keys(data) : 'no data',
-      raw: data
-    });
-    
-    // Se for array, pegar o primeiro objeto
-    if (Array.isArray(data) && data.length > 0) {
-      console.log('[CONFIG] Transformando array para objeto:', data[0]);
-      data = data[0];
-    }
-    
-    // Garantir formato correto
-    const processedConfig = {
-      telefone_whatsapp: data.telefone_whatsapp || data.whatsapp || '',
-      moeda: data.moeda || 'BRL',
-      nome_loja: data.nome_loja || data.Loja || 'Loja',
-      pedido_minimo_entrega: data.pedido_minimo_entrega || 0,
-      mensagem_retirada: data.mensagem_retirada || 'Retire em 20 minutos'
-    };
-    
-    console.log('[CONFIG] Configuração processada para frontend:', processedConfig);
-    data = processedConfig;
-  }
-
-  console.log(`[GET SUCCESS] ${action}:`, 
-    action === 'getPedidos' 
-      ? `${data.pedidos?.length || 0} pedidos` 
-      : Array.isArray(data) ? `${data.length} items` : 'object'
-  );
-
-  return res.status(200).json(data);
-}
-
-    //Configuração Parceiros
-
-    if (action === 'getParceiros') {
-  console.log('[PARCEIROS DEBUG] Dados brutos do Google Script:', {
-    type: typeof data,
-    isArray: Array.isArray(data),
-    keys: data ? Object.keys(data) : 'no data'
-  });
-  
-  // Se a API retornar objeto com propriedade 'parceiros'
-  if (data && data.parceiros && Array.isArray(data.parceiros)) {
-    console.log(`[PARCEIROS] Formatando ${data.parceiros.length} parceiros`);
-    data = {
-      success: true,
-      parceiros: data.parceiros
-    };
-  } 
-  // Se retornar array direto
-  else if (Array.isArray(data)) {
-    console.log(`[PARCEIROS] Array direto com ${data.length} parceiros`);
-    data = {
-      success: true,
-      parceiros: data
-    };
-  }
-  // Se não tiver parceiros
-  else {
-    console.log('[PARCEIROS] Sem parceiros ou formato inválido');
-    data = {
-      success: true,
-      parceiros: []
-    };
-  }
-}
     // 🔴 ROTA POST
     if (req.method === 'POST') {
       console.log(`[POST] Ação: ${action}, Body:`, req.body);
