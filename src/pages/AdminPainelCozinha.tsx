@@ -1,5 +1,6 @@
+// src/pages/PainelCozinha.tsx - VERSÃO CORRIGIDA
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 const AdminPainelCozinha: React.FC = () => {
   const navigate = useNavigate();
@@ -12,153 +13,245 @@ const AdminPainelCozinha: React.FC = () => {
   const [pedidoProcessando, setPedidoProcessando] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   
-  const API_KEY = "cce4d5770afe09d2c790dcca4272e1190462a6a574270b040c835889115c6914";
-  const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrEMAZ9jap-LMpi5_VrlZsVvpGyBwNzL6YAVPeG06ZSQDNsb7sIuj5UsWF2x4xzZt8MA/exec";
-  
-  // Inicializar áudio
-  useEffect(() => {
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
+  // Obter variáveis de ambiente
+  const getEnvVar = () => {
+    // Em desenvolvimento
+    if (typeof import.meta !== 'undefined' && import.meta.env) {
+      return {
+        googleScriptUrl: import.meta.env.VITE_GOOGLE_SCRIPT_URL || '',
+        apiKey: import.meta.env.VITE_API_KEY || ''
+      };
     }
     
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-    };
-  }, []);
+    // Em produção (Vercel)
+    if (typeof process !== 'undefined' && process.env) {
+      return {
+        googleScriptUrl: process.env.VITE_GOOGLE_SCRIPT_URL || process.env.GOOGLE_SCRIPT_URL || '',
+        apiKey: process.env.VITE_API_KEY || process.env.API_KEY || ''
+      };
+    }
+    
+    return { googleScriptUrl: '', apiKey: '' };
+  };
   
-  // Buscar pedidos
+  const { googleScriptUrl, apiKey } = getEnvVar();
+  
+  // Verificar se tem as variáveis necessárias
+  useEffect(() => {
+    if (!googleScriptUrl || !apiKey) {
+      console.error('❌ Variáveis de ambiente não configuradas!');
+      console.error('Google Script URL:', googleScriptUrl ? 'OK' : 'FALTANDO');
+      console.error('API Key:', apiKey ? 'OK' : 'FALTANDO');
+      alert('Erro de configuração: Variáveis de ambiente não configuradas');
+    }
+  }, [googleScriptUrl, apiKey]);
+  
+  // Buscar pedidos - VERSÃO CORRIGIDA
   const buscarPedidos = async () => {
     try {
-      setLoading(true);
+      console.log('🔄 Buscando pedidos...');
       
-      const url = `${GOOGLE_SCRIPT_URL}?action=getPedidos&key=${API_KEY}`;
-      console.log('🔗 Buscando pedidos:', url);
+      if (!googleScriptUrl || !apiKey) {
+        throw new Error('Variáveis de ambiente não configuradas');
+      }
+      
+      const url = `${googleScriptUrl}?action=getPedidos&key=${apiKey}`;
+      console.log('🔗 URL da API:', url);
       
       const response = await fetch(url, {
         method: 'GET',
-        mode: 'no-cors',
         headers: {
-          'Accept': 'application/json',
-        }
-      }).catch(error => {
-        console.error('❌ Erro de fetch:', error);
-        throw new Error(`Falha na conexão: ${error.message}`);
+          'Accept': 'application/json'
+        },
+        mode: 'cors'
       });
       
-      console.log('📨 Response:', response);
+      console.log('📊 Status da resposta:', response.status, response.statusText);
       
-      // Como estamos usando no-cors, não podemos ler a resposta diretamente
-      // Mas podemos assumir que a requisição foi feita
-      // Em vez disso, faremos uma nova requisição usando o endpoint da API local
-      const apiResponse = await fetch(`/api?action=getPedidos&_=${Date.now()}`);
-      
-      if (!apiResponse.ok) {
-        throw new Error(`HTTP ${apiResponse.status}`);
+      if (!response.ok) {
+        throw new Error(`Erro HTTP ${response.status}: ${response.statusText}`);
       }
       
-      const data = await apiResponse.json();
-      console.log('📊 Dados recebidos:', data);
+      const responseText = await response.text();
+      console.log('📦 Resposta bruta:', responseText.substring(0, 200) + '...');
+      
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (jsonError) {
+        console.error('❌ Erro ao parsear JSON:', jsonError);
+        throw new Error('Resposta da API não é JSON válido');
+      }
+      
+      console.log('📊 Dados processados:', {
+        success: data.success,
+        total: data.total,
+        pedidosCount: data.pedidos?.length || 0
+      });
       
       if (data.success && Array.isArray(data.pedidos)) {
-        const pedidosOrdenados = [...data.pedidos].sort((a, b) => {
-          const timeA = new Date(a.timestamp || 0).getTime();
-          const timeB = new Date(b.timestamp || 0).getTime();
-          return timeB - timeA;
-        });
+        const novosPedidos = data.pedidos || [];
         
-        // Detectar novo pedido
-        if (pedidosOrdenados.length > 0) {
+        if (novosPedidos.length > 0) {
+          // Ordenar por data (mais recente primeiro)
+          const pedidosOrdenados = [...novosPedidos].sort((a, b) => {
+            const timeA = new Date(a.timestamp || 0).getTime();
+            const timeB = new Date(b.timestamp || 0).getTime();
+            return timeB - timeA;
+          });
+          
+          // Pegar o pedido MAIS RECENTE
           const pedidoMaisRecente = pedidosOrdenados[0];
           const pedidoIdMaisRecente = pedidoMaisRecente?.pedido_id;
           
+          // DETECÇÃO DE NOVO PEDIDO (somente para pedidos com status "Recebido")
           if (pedidoIdMaisRecente && 
               pedidoIdMaisRecente !== ultimoPedidoId && 
               pedidoMaisRecente.status === 'Recebido') {
             
             console.log('🚨 NOVO PEDIDO DETECTADO!', pedidoIdMaisRecente);
+            
+            // 1. Mostrar notificação visual
             setNotificacaoAtiva(true);
+            
+            // 2. Notificação do navegador
+            if ('Notification' in window && Notification.permission === 'granted') {
+              new Notification(`Novo Pedido #${pedidoIdMaisRecente}`, {
+                body: `${pedidoMaisRecente.cliente || 'Cliente'} - ${pedidoMaisRecente.tipo || 'local'}`,
+                icon: '/logo-cardapio.png',
+                tag: `pedido-${pedidoIdMaisRecente}`
+              });
+            }
+            
+            // Atualizar último ID
             setUltimoPedidoId(pedidoIdMaisRecente);
             
+            // Notificação automática some após 10 segundos
             setTimeout(() => {
               setNotificacaoAtiva(false);
             }, 10000);
           }
+          
+          // Se o pedido mais recente NÃO é "Recebido", parar notificação
+          if (pedidoMaisRecente.status !== 'Recebido' && notificacaoAtiva) {
+            setNotificacaoAtiva(false);
+          }
+          
+          // Atualizar estado dos pedidos
+          setPedidos(pedidosOrdenados);
+        } else {
+          // Sem pedidos
+          setPedidos([]);
         }
         
-        setPedidos(pedidosOrdenados);
-        
+        // Atualizar hora da última atualização
         setUltimaAtualizacao(new Date().toLocaleTimeString('pt-BR', {
           hour: '2-digit',
           minute: '2-digit',
           second: '2-digit'
         }));
+      } else {
+        console.error('❌ Formato de resposta inválido:', data);
+        setPedidos([]);
       }
-    } catch (error) {
-      console.error('❌ Erro ao buscar pedidos:', error);
+      
+    } catch (error: any) {
+      console.error('❌ Erro ao buscar pedidos:', error.message);
+      console.error('Stack:', error.stack);
+      
+      // Fallback: Tentar usar endpoint local /api
+      try {
+        console.log('🔄 Tentando fallback para /api endpoint...');
+        const fallbackResponse = await fetch(`/api?action=getPedidos&_=${Date.now()}`);
+        if (fallbackResponse.ok) {
+          const fallbackData = await fallbackResponse.json();
+          if (fallbackData.success && Array.isArray(fallbackData.pedidos)) {
+            setPedidos(fallbackData.pedidos);
+            console.log('✅ Fallback funcionou:', fallbackData.pedidos.length, 'pedidos');
+          }
+        }
+      } catch (fallbackError) {
+        console.error('❌ Fallback também falhou:', fallbackError);
+      }
     } finally {
       setLoading(false);
     }
   };
   
-  // Atualizar status
+  // Atualizar status - VERSÃO CORRIGIDA
   const atualizarStatus = async (pedidoId: string, novoStatus: string) => {
+    if (!googleScriptUrl || !apiKey) {
+      alert('Erro: Variáveis de ambiente não configuradas');
+      return;
+    }
+    
     try {
       console.log('📝 Atualizando status:', pedidoId, '->', novoStatus);
       
+      // Marcar pedido como processando
       setPedidoProcessando(pedidoId);
       
-      const url = `${GOOGLE_SCRIPT_URL}?action=atualizarStatus&key=${API_KEY}`;
+      // Parar notificação quando mudar status
+      setNotificacaoAtiva(false);
+      
+      // Chamar API direto do Google Script
+      const url = `${googleScriptUrl}?action=atualizarStatus&key=${apiKey}`;
+      
+      console.log('🔗 URL da atualização:', url);
       
       const response = await fetch(url, {
         method: 'POST',
-        mode: 'no-cors',
-        headers: {
+        headers: { 
           'Content-Type': 'application/json',
+          'Accept': 'application/json'
         },
         body: JSON.stringify({ 
           pedidoId: pedidoId.toString().trim(),
           novoStatus: novoStatus.trim()
-        })
-      }).catch(error => {
-        console.error('❌ Erro de fetch:', error);
-        throw new Error(`Falha na conexão: ${error.message}`);
+        }),
+        mode: 'cors'
       });
       
-      console.log('📨 Status atualizado, response:', response);
+      console.log('📊 Status da atualização:', response.status);
       
-      // Aguardar um pouco e recarregar
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      await buscarPedidos();
-      
-    } catch (error) {
-      console.error('❌ Erro na requisição:', error);
-      alert('Erro ao atualizar status');
+      if (response.ok) {
+        console.log('✅ Status atualizado com sucesso');
+        // Aguardar um pouco e recarregar
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        await buscarPedidos();
+      } else {
+        const errorText = await response.text();
+        console.error('❌ Erro na resposta:', errorText);
+        alert('Erro ao atualizar status: ' + errorText.substring(0, 100));
+      }
+    } catch (error: any) {
+      console.error('❌ Erro na requisição:', error.message);
+      alert('Erro de conexão: ' + error.message);
     } finally {
       setPedidoProcessando(null);
     }
   };
   
-  // Atualização automática
+  // Atualização automática a cada 10 segundos
   useEffect(() => {
+    // Buscar imediatamente
     buscarPedidos();
     
+    // Configurar intervalo
     const intervalId = setInterval(buscarPedidos, 10000);
     
     return () => {
       clearInterval(intervalId);
     };
-  }, []);
+  }, [googleScriptUrl, apiKey]); // Dependência nas variáveis de ambiente
   
-  // Filtrar pedidos
+  // Filtrar pedidos por aba ativa
   const pedidosFiltrados = pedidos.filter(pedido => {
     if (abaAtiva === 'todos') return true;
     return pedido.tipo === abaAtiva;
   });
   
-  // Formatar data
+  // Formatar data para exibição
   const formatarData = (dataString: string) => {
     try {
       const data = new Date(dataString);
@@ -171,94 +264,68 @@ const AdminPainelCozinha: React.FC = () => {
     }
   };
   
-  // Processar itens
-  const processarItens = (itens: any): any[] => {
-    if (!itens) return [];
-    
-    try {
-      if (Array.isArray(itens)) {
-        return itens;
-      }
-      return [];
-    } catch (error) {
-      console.error('Erro ao processar itens:', error);
-      return [];
-    }
-  };
-  
-  // Renderizar itens
+  // Renderizar itens do pedido
   const renderItens = (itens: any) => {
-    const itensProcessados = processarItens(itens);
+    if (!itens) return <p className="text-gray-400">Sem itens</p>;
     
-    if (itensProcessados.length === 0) {
-      return <p className="text-gray-400 text-sm">Sem itens</p>;
-    }
-    
-    return (
-      <div className="space-y-2">
-        {itensProcessados.slice(0, 4).map((item: any, index: number) => {
-          const quantidade = parseInt(item.quantidade) || 1;
-          const precoUnitario = parseFloat(item.precoUnitario) || 0;
-          const precoTotal = parseFloat(item.precoTotal) || quantidade * precoUnitario;
-          const nome = item.nome || 'Item';
-          const opcoes = item.opcoes || [];
-          
-          return (
-            <div key={index} className="text-sm border-b border-gray-700/50 pb-2 last:border-0">
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <div className="font-medium text-gray-300">
-                    {quantidade}x {nome}
+    if (Array.isArray(itens)) {
+      return (
+        <div className="space-y-2">
+          {itens.slice(0, 4).map((item: any, index: number) => {
+            const quantidade = parseInt(item.quantidade) || 1;
+            const precoUnitario = parseFloat(item.precoUnitario) || parseFloat(item.preco) || 0;
+            const precoTotal = parseFloat(item.precoTotal) || quantidade * precoUnitario;
+            
+            return (
+              <div key={index} className="text-sm">
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <span className="font-medium">{quantidade}x</span>
+                    <span className="ml-2">{item.nome || item.produto || 'Item'}</span>
+                    {item.opcoes && Array.isArray(item.opcoes) && item.opcoes.length > 0 && (
+                      <div className="text-xs text-gray-400 mt-1">
+                        {item.opcoes.join(', ')}
+                      </div>
+                    )}
                   </div>
-                  
-                  {Array.isArray(opcoes) && opcoes.length > 0 && (
-                    <div className="text-xs text-gray-400 mt-1 space-y-0.5">
-                      {opcoes.map((opcao: string, i: number) => (
-                        <div key={i}>{opcao}</div>
-                      ))}
+                  <div className="text-right ml-2 min-w-[80px]">
+                    <div className="font-medium">
+                      R$ {precoTotal.toFixed(2)}
                     </div>
-                  )}
-                </div>
-                
-                <div className="text-right ml-2 min-w-[80px]">
-                  <div className="font-medium text-white">
-                    R$ {precoTotal.toFixed(2)}
                   </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
-        
-        {itensProcessados.length > 4 && (
-          <p className="text-xs text-gray-500 pt-2">
-            + {itensProcessados.length - 4} itens...
-          </p>
-        )}
-      </div>
-    );
+            );
+          })}
+          {itens.length > 4 && (
+            <p className="text-xs text-gray-500">+ {itens.length - 4} itens...</p>
+          )}
+        </div>
+      );
+    }
+    
+    return <p className="text-gray-400 text-sm">Formato de itens inválido</p>;
   };
   
-  // Calcular total
+  // Calcular total do pedido
   const calcularTotalPedido = (pedido: any) => {
     if (pedido.total) {
       return parseFloat(pedido.total);
     }
     
-    const itensProcessados = processarItens(pedido.itens);
-    if (itensProcessados.length > 0) {
-      return itensProcessados.reduce((total: number, item: any) => {
-        const quantidade = parseInt(item.quantidade) || 1;
-        const precoUnitario = parseFloat(item.precoUnitario) || 0;
-        const precoTotal = parseFloat(item.precoTotal) || quantidade * precoUnitario;
-        return total + precoTotal;
-      }, 0);
-    }
-    
     return 0;
   };
   
-  // Funções auxiliares
+  // Funções auxiliares para estilos (sem emojis)
+  const getTipoLabel = (tipo: string) => {
+    switch(tipo) {
+      case 'delivery': return 'Delivery';
+      case 'retirada': return 'Retirada';
+      case 'local': return 'Consumo Local';
+      default: return tipo;
+    }
+  };
+  
   const getStatusClass = (status: string) => {
     switch(status) {
       case 'Recebido': return 'bg-yellow-900/30 text-yellow-400';
@@ -287,22 +354,18 @@ const AdminPainelCozinha: React.FC = () => {
     }
   };
   
-  const getTipoLabel = (tipo: string) => {
-    switch(tipo) {
-      case 'delivery': return 'Delivery';
-      case 'retirada': return 'Retirada';
-      case 'local': return 'Consumo Local';
-      default: return tipo;
-    }
-  };
-  
-  // Loading
+  // Tela de loading
   if (loading && pedidos.length === 0) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
         <div className="text-white text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
           <p>Carregando pedidos...</p>
+          {(!googleScriptUrl || !apiKey) && (
+            <p className="text-yellow-400 text-sm mt-2">
+              Verificando configuração da API...
+            </p>
+          )}
         </div>
       </div>
     );
@@ -310,7 +373,7 @@ const AdminPainelCozinha: React.FC = () => {
   
   return (
     <div className="min-h-screen bg-gray-900 text-white">
-      {/* Notificação */}
+      {/* NOTIFICAÇÃO DE NOVO PEDIDO */}
       {notificacaoAtiva && (
         <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50">
           <div className="bg-gradient-to-r from-red-600 to-orange-600 text-white p-4 rounded-xl shadow-2xl max-w-lg">
@@ -333,30 +396,41 @@ const AdminPainelCozinha: React.FC = () => {
         </div>
       )}
       
-      {/* Cabeçalho */}
+      {/* CABEÇALHO */}
       <header className="bg-gray-800 border-b border-gray-700 p-4">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold">Painel da Cozinha</h1>
-            <p className="text-gray-400 text-sm">
-              Atualizado: {ultimaAtualizacao} | {pedidos.length} pedidos
-            </p>
+          <div className="flex items-center space-x-3">
+            <Link
+              to="/"
+              className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+              title="Voltar ao cardápio"
+            >
+              ←
+            </Link>
+            <div>
+              <h1 className="text-2xl font-bold">Painel da Cozinha</h1>
+              <p className="text-gray-400 text-sm">
+                Atualizado: {ultimaAtualizacao} | {pedidos.length} pedidos
+              </p>
+            </div>
           </div>
           
-          <div>
+          <div className="flex items-center space-x-2">
             <button
               onClick={buscarPedidos}
-              className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition-colors"
+              disabled={loading}
+              className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors disabled:opacity-50"
             >
-              Atualizar
+              <span>↻</span>
+              <span>Atualizar</span>
             </button>
           </div>
         </div>
       </header>
       
-      {/* Conteúdo */}
+      {/* CONTEÚDO PRINCIPAL */}
       <div className="max-w-7xl mx-auto p-4">
-        {/* Abas */}
+        {/* ABAS DE FILTRO */}
         <div className="flex space-x-2 mb-6 overflow-x-auto pb-2">
           {[
             { id: 'todos', label: 'Todos', count: pedidos.length },
@@ -370,7 +444,7 @@ const AdminPainelCozinha: React.FC = () => {
               <button
                 key={aba.id}
                 onClick={() => setAbaAtiva(aba.id as any)}
-                className={`flex items-center space-x-2 px-4 py-3 rounded-lg transition-colors ${
+                className={`flex items-center space-x-2 px-4 py-3 rounded-lg transition-colors whitespace-nowrap ${
                   isAtiva
                     ? 'bg-blue-600 text-white'
                     : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
@@ -387,7 +461,7 @@ const AdminPainelCozinha: React.FC = () => {
           })}
         </div>
         
-        {/* Lista de Pedidos */}
+        {/* LISTA DE PEDIDOS */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {pedidosFiltrados.map((pedido, index) => {
             const tipoCor = getTipoClass(pedido.tipo);
@@ -395,8 +469,6 @@ const AdminPainelCozinha: React.FC = () => {
             const statusCor = getStatusClass(pedido.status || 'Recebido');
             const totalPedido = calcularTotalPedido(pedido);
             const pedidoId = pedido.pedido_id || pedido.id || `PED${index}`;
-            const itensProcessados = processarItens(pedido.itens);
-            const totalItens = itensProcessados.reduce((total, item) => total + (parseInt(item.quantidade) || 1), 0);
             const estaProcessando = pedidoProcessando === pedidoId;
             
             return (
@@ -406,7 +478,7 @@ const AdminPainelCozinha: React.FC = () => {
                   pedido.status === 'Recebido' ? 'ring-2 ring-yellow-500/50' : ''
                 } ${estaProcessando ? 'ring-2 ring-blue-500' : ''}`}
               >
-                {/* Cabeçalho */}
+                {/* CABEÇALHO DO PEDIDO */}
                 <div className="flex justify-between items-start">
                   <div>
                     <div className="mb-1">
@@ -425,10 +497,10 @@ const AdminPainelCozinha: React.FC = () => {
                   </div>
                 </div>
                 
-                {/* Cliente */}
+                {/* INFORMAÇÕES DO CLIENTE */}
                 <div className="bg-gray-900/50 rounded-lg p-3">
                   <div className="mb-2">
-                    <p className="font-medium">{pedido.cliente || 'Cliente'}</p>
+                    <p className="font-medium truncate">{pedido.cliente || 'Cliente'}</p>
                     {pedido.telefone && pedido.telefone !== 'Não informado' && (
                       <p className="text-gray-400 text-sm">
                         {pedido.telefone}
@@ -437,28 +509,27 @@ const AdminPainelCozinha: React.FC = () => {
                   </div>
                   
                   {pedido.tipo === 'delivery' && pedido.endereco && (
-                    <p className="text-gray-400 text-sm mt-2">
+                    <p className="text-gray-400 text-sm mt-2 truncate">
                       {pedido.endereco}
+                      {pedido.numero && `, ${pedido.numero}`}
+                      {pedido.complemento && ` - ${pedido.complemento}`}
                     </p>
                   )}
                 </div>
                 
-                {/* Itens */}
+                {/* ITENS DO PEDIDO */}
                 <div>
-                  <h4 className="font-medium mb-2">Itens do Pedido ({totalItens} itens)</h4>
+                  <h4 className="font-medium mb-2">Itens do Pedido</h4>
                   {renderItens(pedido.itens)}
                 </div>
                 
-                {/* Total e Ações */}
+                {/* TOTAL E AÇÕES */}
                 <div className="pt-3 border-t border-gray-700">
                   <div className="flex justify-between items-center">
                     <div>
                       <span className="text-xl font-bold">
                         R$ {totalPedido.toFixed(2)}
                       </span>
-                      <div className="text-xs text-gray-400">
-                        {totalItens} itens
-                      </div>
                     </div>
                     
                     <div className="flex space-x-2">
@@ -535,10 +606,9 @@ const AdminPainelCozinha: React.FC = () => {
           })}
         </div>
         
-        {/* Lista Vazia */}
-        {pedidosFiltrados.length === 0 && (
+        {/* MENSAGEM PARA LISTA VAZIA */}
+        {pedidosFiltrados.length === 0 && !loading && (
           <div className="text-center py-12">
-            <div className="text-4xl mb-4">📭</div>
             <h3 className="text-xl font-bold text-gray-400 mb-2">
               Nenhum pedido {abaAtiva !== 'todos' ? `de ${abaAtiva}` : ''}
             </h3>
@@ -549,10 +619,10 @@ const AdminPainelCozinha: React.FC = () => {
         )}
       </div>
       
-      {/* Rodapé */}
+      {/* RODAPÉ */}
       <footer className="bg-gray-800 border-t border-gray-700 p-4 mt-8">
         <div className="max-w-7xl mx-auto text-center text-gray-500 text-sm">
-          <p>Painel da Cozinha • Atualiza a cada 10 segundos</p>
+          <p>Painel da Cozinha • Atualiza automaticamente a cada 10 segundos</p>
           <p className="mt-1">
             Recebidos: {pedidos.filter(p => p.status === 'Recebido').length} • 
             Preparando: {pedidos.filter(p => p.status === 'Preparando').length} • 
