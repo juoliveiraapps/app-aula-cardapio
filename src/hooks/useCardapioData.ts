@@ -104,7 +104,7 @@ export const useCardapioData = () => {
       setConfig({
         telefone_whatsapp: configData.telefone_whatsapp || configData.whatsapp || '',
         moeda: configData.moeda || 'BRL',
-        nome_loja: configData.nome_loja || configData.Loja || 'Loja',
+        nome_loja: configData.nome_loja || configData.Loja || 'Coffee House',
         pedido_minimo_entrega: configData.pedido_minimo_entrega || 0,
         mensagem_retirada: configData.mensagem_retirada || 'Retire em 20 minutos'
       });
