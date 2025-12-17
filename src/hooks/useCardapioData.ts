@@ -41,8 +41,8 @@ export const useCardapioData = () => {
       if (environment === 'stackblitz') {
         console.log('🚀 StackBlitz detectado - usando Google Script direto');
         // No StackBlitz, use o Google Script diretamente
-        const API_KEY = 'sua_chave_google_script'; // Coloque sua chave aqui
-        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/SEU_ID/exec'; // Coloque sua URL aqui
+        const API_KEY = 'cce4d5770afe09d2c790dcca4272e1190462a6a574270b040c835889115c6914'; // Coloque sua chave aqui
+        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzrEMAZ9jap-LMpi5_VrlZsVvpGyBwNzL6YAVPeG06ZSQDNsb7sIuj5UsWF2x4xzZt8MA/exec'; // Coloque sua URL aqui
         
         buildUrl = (action: string) => 
           `${GOOGLE_SCRIPT_URL}?action=${action}&key=${API_KEY}`;
