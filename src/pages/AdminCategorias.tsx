@@ -28,46 +28,35 @@ const AdminCategorias = () => {
     try {
       setProcessing(true);
       setLocalError(null);
-      
+
       console.log('📝 Salvando categoria:', categoryData);
-      
-      const API_KEY = "cce4d5770afe09d2c790dcca4272e1190462a6a574270b040c835889115c6914";
-      const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrEMAZ9jap-LMpi5_VrlZsVvpGyBwNzL6YAVPeG06ZSQDNsb7sIuj5UsWF2x4xzZt8MA/exec";
-      
-      const url = `${GOOGLE_SCRIPT_URL}?action=salvarCategoria&key=${API_KEY}`;
-      
-      console.log('🔗 URL da requisição:', url);
-      
-      const response = await fetch(url, {
+
+      const response = await fetch('/api?action=salvarCategoria', {
         method: 'POST',
-        mode: 'no-cors', // IMPORTANTE para Google Apps Script
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(categoryData)
-      }).catch(error => {
-        console.error('❌ Erro de fetch:', error);
-        throw new Error(`Falha na conexão: ${error.message}`);
       });
-      
-      console.log('📨 Response:', response);
-      
-      // Com no-cors, não podemos ler a resposta diretamente
-      // O Google Apps Script retorna 302 redirect, então fazemos uma segunda requisição GET
-      
-      // Verificar se salvou fazendo uma requisição GET para ver as categorias
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Aguardar 2 segundos
-      
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ Resposta da API:', result);
+
       // Recarregar os dados
       await refetch();
-      
+
       // Fechar o formulário
       setShowForm(false);
       setEditingCategory(null);
-      
+
       alert('✅ Categoria salva com sucesso!');
       return true;
-      
+
     } catch (err: any) {
       console.error('❌ Erro ao salvar categoria:', err);
       setLocalError(err.message || 'Erro ao salvar categoria');
@@ -78,7 +67,7 @@ const AdminCategorias = () => {
     }
   };
 
-  // Função para deletar categoria (versão alternativa)
+  // Função para deletar categoria
   const handleDeleteCategory = async (id: string): Promise<void> => {
     if (!window.confirm('Tem certeza que deseja excluir esta categoria?\n\nATENÇÃO: Todos os produtos desta categoria também serão afetados!')) {
       return;
@@ -87,38 +76,30 @@ const AdminCategorias = () => {
     try {
       setProcessing(true);
       setLocalError(null);
-      
+
       console.log('🗑️ Deletando categoria ID:', id);
-      
-      const GOOGLE_SCRIPT_URL = process.env.GOOGLE_SCRIPT_URL;
-      const API_KEY = process.env.API_KEY;
-      
-      const url = `${GOOGLE_SCRIPT_URL}?action=deletarCategoria&key=${API_KEY}`;
-      
-      console.log('🔗 URL da requisição:', url);
-      
-      const response = await fetch(url, {
+
+      const response = await fetch('/api?action=deletarCategoria', {
         method: 'POST',
-        mode: 'no-cors',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ id })
-      }).catch(error => {
-        console.error('❌ Erro de fetch:', error);
-        throw new Error(`Falha na conexão: ${error.message}`);
       });
-      
-      console.log('📨 Response:', response);
-      
-      // Aguardar um pouco
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ Resposta da API:', result);
+
       // Recarregar os dados
       await refetch();
-      
+
       alert('✅ Categoria deletada com sucesso!');
-      
+
     } catch (err: any) {
       console.error('❌ Erro ao deletar categoria:', err);
       setLocalError(err.message || 'Erro ao deletar categoria');

@@ -39,14 +39,19 @@ export const useCardapioData = () => {
       let useMockData = false;
       
       if (environment === 'stackblitz') {
-        console.log('🚀 StackBlitz detectado - usando Google Script direto');
-        // No StackBlitz, use o Google Script diretamente
-        const API_KEY = 'cce4d5770afe09d2c790dcca4272e1190462a6a574270b040c835889115c6914'; // Coloque sua chave aqui
-        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzrEMAZ9jap-LMpi5_VrlZsVvpGyBwNzL6YAVPeG06ZSQDNsb7sIuj5UsWF2x4xzZt8MA/exec'; // Coloque sua URL aqui
-        
-        buildUrl = (action: string) => 
-          `${GOOGLE_SCRIPT_URL}?action=${action}&key=${API_KEY}`;
-        
+        console.log('🚀 StackBlitz detectado - usando variáveis de ambiente');
+        // No StackBlitz, configure as variáveis de ambiente VITE_API_KEY e VITE_GOOGLE_SCRIPT_URL
+        const API_KEY = import.meta.env.VITE_API_KEY || '';
+        const GOOGLE_SCRIPT_URL = import.meta.env.VITE_GOOGLE_SCRIPT_URL || '';
+
+        if (API_KEY && GOOGLE_SCRIPT_URL) {
+          buildUrl = (action: string) =>
+            `${GOOGLE_SCRIPT_URL}?action=${action}&key=${API_KEY}`;
+        } else {
+          console.warn('⚠️ StackBlitz: Configure VITE_API_KEY e VITE_GOOGLE_SCRIPT_URL nas variáveis de ambiente');
+          useMockData = true;
+        }
+
       } else if (environment === 'development') {
         console.log('💻 Desenvolvimento local - usando API local ou Google Script');
         // Desenvolvimento local
