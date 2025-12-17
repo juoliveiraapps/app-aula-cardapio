@@ -126,10 +126,7 @@ const AdminDashboard = () => {
             
             {activeMenu === 'cozinha' && (
               <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-2xl font-bold text-white">Painel da Cozinha</h2>
-                  <p className="text-gray-400">Configurações do painel de pedidos</p>
-                </div>
+               
                 <div className="text-sm text-gray-400 bg-gray-800/50 px-3 py-1.5 rounded-lg">
                   {menuItems.find(m => m.id === activeMenu)?.label}
                 </div>
