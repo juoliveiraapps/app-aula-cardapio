@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
-const PainelCozinha: React.FC = () => {
+const AdminPainelCozinha: React.FC = () => {
   const [pedidos, setPedidos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [abaAtiva, setAbaAtiva] = useState<'todos' | 'delivery' | 'retirada' | 'local'>('todos');
@@ -495,4 +495,4 @@ const PainelCozinha: React.FC = () => {
   );
 };
 
-export default PainelCozinha;
+export default AdminPainelCozinha;
