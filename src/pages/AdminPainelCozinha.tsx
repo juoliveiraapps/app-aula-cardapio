@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const PainelCozinha: React.FC = () => {
+const AdminPainelCozinha: React.FC = () => {
   const navigate = useNavigate();
   const [pedidos, setPedidos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -564,4 +564,4 @@ const PainelCozinha: React.FC = () => {
   );
 };
 
-export default PainelCozinha;
+export default AdminPainelCozinha;
