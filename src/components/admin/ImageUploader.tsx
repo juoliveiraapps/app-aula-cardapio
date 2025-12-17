@@ -19,7 +19,15 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
 
   // Usando as variáveis de ambiente do Vite
   const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
-  const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+
+// DEBUG: Verificar se as variáveis estão carregando
+console.log('🔧 Cloudinary Config:', {
+  CLOUD_NAME: CLOUD_NAME ? `✅ Definido (${CLOUD_NAME.substring(0, 5)}...)` : '❌ NÃO DEFINIDO',
+  UPLOAD_PRESET: UPLOAD_PRESET ? `✅ Definido (${UPLOAD_PRESET.substring(0, 5)}...)` : '❌ NÃO DEFINIDO',
+  ENV_MODE: import.meta.env.MODE,
+  ENV_PROD: import.meta.env.PROD,
+});
 
   // Verificar se as variáveis de ambiente estão configuradas
   const validateCloudinaryConfig = () => {
