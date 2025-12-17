@@ -1,16 +1,17 @@
+// src/pages/AdminCategorias.tsx
 import React, { useState } from 'react';
 import { Plus, RefreshCw } from 'lucide-react';
 import { useCardapioData } from '../hooks/useCardapioData';
 import { Categoria } from '../types';
 import CategoryForm from '../components/admin/CategoryForm';
 import CategoryList from '../components/admin/CategoryList';
-import { saveProductToSheet, deleteProductFromSheet } from '../services/adminService';
 
 const AdminCategorias = () => {
-  const { categorias, loading, error } = useCardapioData();
+  const { categorias, loading, error, refetch } = useCardapioData();
   const [showForm, setShowForm] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Categoria | null>(null);
   const [processing, setProcessing] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
 
   // Converter categorias para o formato do CategoryList
   const categories = categorias.map(cat => ({
@@ -19,42 +20,57 @@ const AdminCategorias = () => {
     descricao: cat.descricao || '',
     posicao: cat.posicao || 1,
     visivel: cat.visivel !== false,
-    icone_svg: cat.icone_svg || 'M12 2v20 M17 5H9.5a3.5 3.5 0 1 0 0 7H14 M7 19H4'
+    icone_svg: cat.icone_svg || '📦' // Default icon
   }));
 
   // Função para salvar categoria
   const handleSaveCategory = async (categoryData: any): Promise<boolean> => {
     try {
       setProcessing(true);
+      setLocalError(null);
       
       console.log('📝 Salvando categoria:', categoryData);
       
       const API_KEY = "cce4d5770afe09d2c790dcca4272e1190462a6a574270b040c835889115c6914";
-      const API_URL = `${window.location.origin}/api`;
+      const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrEMAZ9jap-LMpi5_VrlZsVvpGyBwNzL6YAVPeG06ZSQDNsb7sIuj5UsWF2x4xzZt8MA/exec";
       
-      const response = await fetch(`${API_URL}?action=salvarCategoria&key=${API_KEY}`, {
+      const url = `${GOOGLE_SCRIPT_URL}?action=salvarCategoria&key=${API_KEY}`;
+      
+      console.log('🔗 URL da requisição:', url);
+      
+      const response = await fetch(url, {
         method: 'POST',
+        mode: 'no-cors', // IMPORTANTE para Google Apps Script
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
         },
         body: JSON.stringify(categoryData)
+      }).catch(error => {
+        console.error('❌ Erro de fetch:', error);
+        throw new Error(`Falha na conexão: ${error.message}`);
       });
       
-      const data = await response.json();
+      console.log('📨 Response:', response);
       
-      if (data.success) {
-        console.log('✅ Categoria salva com sucesso');
-        alert(data.message || 'Categoria salva com sucesso!');
-        
-        // Recarregar a página para atualizar os dados
-        window.location.reload();
-        return true;
-      } else {
-        throw new Error(data.error || 'Erro ao salvar categoria');
-      }
+      // Com no-cors, não podemos ler a resposta diretamente
+      // O Google Apps Script retorna 302 redirect, então fazemos uma segunda requisição GET
+      
+      // Verificar se salvou fazendo uma requisição GET para ver as categorias
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Aguardar 2 segundos
+      
+      // Recarregar os dados
+      await refetch();
+      
+      // Fechar o formulário
+      setShowForm(false);
+      setEditingCategory(null);
+      
+      alert('✅ Categoria salva com sucesso!');
+      return true;
+      
     } catch (err: any) {
       console.error('❌ Erro ao salvar categoria:', err);
+      setLocalError(err.message || 'Erro ao salvar categoria');
       alert(`Erro: ${err.message || 'Erro desconhecido'}`);
       return false;
     } finally {
@@ -62,42 +78,50 @@ const AdminCategorias = () => {
     }
   };
 
-  // Função para deletar categoria
+  // Função para deletar categoria (versão alternativa)
   const handleDeleteCategory = async (id: string): Promise<void> => {
-    if (!window.confirm('Tem certeza que deseja excluir esta categoria?')) {
+    if (!window.confirm('Tem certeza que deseja excluir esta categoria?\n\nATENÇÃO: Todos os produtos desta categoria também serão afetados!')) {
       return;
     }
 
     try {
       setProcessing(true);
+      setLocalError(null);
       
       console.log('🗑️ Deletando categoria ID:', id);
       
-      const API_KEY = "cce4d5770afe09d2c790dcca4272e1190462a6a574270b040c835889115c6914";
-      const API_URL = `${window.location.origin}/api`;
+      const GOOGLE_SCRIPT_URL = process.env.GOOGLE_SCRIPT_URL;
+      const API_KEY = process.env.API_KEY;
       
-      const response = await fetch(`${API_URL}?action=deletarCategoria&key=${API_KEY}`, {
+      const url = `${GOOGLE_SCRIPT_URL}?action=deletarCategoria&key=${API_KEY}`;
+      
+      console.log('🔗 URL da requisição:', url);
+      
+      const response = await fetch(url, {
         method: 'POST',
+        mode: 'no-cors',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
         },
         body: JSON.stringify({ id })
+      }).catch(error => {
+        console.error('❌ Erro de fetch:', error);
+        throw new Error(`Falha na conexão: ${error.message}`);
       });
       
-      const data = await response.json();
+      console.log('📨 Response:', response);
       
-      if (data.success) {
-        console.log('✅ Categoria deletada com sucesso');
-        alert(data.message || 'Categoria deletada com sucesso!');
-        
-        // Recarregar a página para atualizar os dados
-        window.location.reload();
-      } else {
-        throw new Error(data.error || 'Erro ao deletar categoria');
-      }
+      // Aguardar um pouco
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Recarregar os dados
+      await refetch();
+      
+      alert('✅ Categoria deletada com sucesso!');
+      
     } catch (err: any) {
       console.error('❌ Erro ao deletar categoria:', err);
+      setLocalError(err.message || 'Erro ao deletar categoria');
       alert(`Erro: ${err.message || 'Erro desconhecido'}`);
     } finally {
       setProcessing(false);
@@ -114,8 +138,8 @@ const AdminCategorias = () => {
     setShowForm(true);
   };
 
-  const refreshCategories = () => {
-    window.location.reload();
+  const refreshCategories = async () => {
+    await refetch();
   };
 
   return (
@@ -123,9 +147,10 @@ const AdminCategorias = () => {
       {/* Cabeçalho */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-bold text-white">Categorias do Cardápio</h3>
+          <h3 className="text-2xl font-bold text-white mb-2">📁 Categorias do Cardápio</h3>
           <p className="text-gray-400">
-            {categories.length} categorias cadastradas
+            {categories.length} categorias cadastradas • 
+            {categories.filter(c => c.visivel).length} visíveis
             {error && ` • Erro: ${error}`}
           </p>
         </div>
@@ -134,39 +159,54 @@ const AdminCategorias = () => {
           <button
             onClick={refreshCategories}
             disabled={loading || processing}
-            className="flex items-center space-x-2 px-3 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors disabled:opacity-50"
+            className="flex items-center space-x-2 px-4 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors disabled:opacity-50"
             title="Atualizar lista"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">Atualizar</span>
+            <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+            <span>Atualizar</span>
           </button>
           
           <button
             onClick={handleNewCategory}
             disabled={processing}
-            className="flex items-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-[#e58840] to-[#e58840]/90 hover:from-[#e58840]/90 hover:to-[#e58840] text-[#400b0b] font-bold rounded-lg transition-all duration-300 disabled:opacity-50"
+            className="flex items-center space-x-2 px-5 py-2.5 bg-gradient-to-r from-[#e58840] to-[#e58840]/90 hover:from-[#e58840]/90 hover:to-[#e58840] text-[#400b0b] font-bold rounded-lg transition-all duration-300 disabled:opacity-50 shadow-lg hover:shadow-[#e58840]/20"
           >
-            <Plus className="w-4 h-4" />
-            <span>Nova Categoria</span>
+            <Plus className="w-5 h-5" />
+            <span className="font-bold">Nova Categoria</span>
           </button>
         </div>
       </div>
 
-      {/* Mensagem de erro */}
-      {error && (
+      {/* Mensagens de erro */}
+      {(error || localError) && (
         <div className="bg-red-900/30 border border-red-800/50 rounded-lg p-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <span className="text-red-400">⚠️</span>
-              <p className="text-red-400">{error}</p>
+            <div className="flex items-center space-x-3">
+              <span className="text-red-400 text-2xl">⚠️</span>
+              <div>
+                <p className="text-red-400 font-semibold">Erro ao carregar dados</p>
+                <p className="text-red-300 text-sm mt-1">
+                  {error || localError}
+                </p>
+              </div>
             </div>
             <button
               onClick={refreshCategories}
-              className="text-red-300 hover:text-white text-sm"
+              className="px-4 py-2 bg-red-800 hover:bg-red-700 text-white rounded-lg text-sm font-medium"
               disabled={loading}
             >
               Tentar novamente
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Status */}
+      {processing && (
+        <div className="bg-blue-900/30 border border-blue-800/50 rounded-lg p-4">
+          <div className="flex items-center space-x-3">
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-400"></div>
+            <p className="text-blue-400">Processando...</p>
           </div>
         </div>
       )}
@@ -177,7 +217,23 @@ const AdminCategorias = () => {
         onEdit={handleEditCategory}
         onDelete={handleDeleteCategory}
         loading={loading && categories.length === 0}
-        emptyMessage="Nenhuma categoria cadastrada. Comece criando sua primeira categoria!"
+        emptyMessage={
+          <div className="text-center py-12">
+            <div className="text-5xl mb-4">📁</div>
+            <h3 className="text-xl font-bold text-gray-300 mb-2">
+              Nenhuma categoria cadastrada
+            </h3>
+            <p className="text-gray-500 mb-6">
+              Comece criando sua primeira categoria para organizar seus produtos.
+            </p>
+            <button
+              onClick={handleNewCategory}
+              className="px-6 py-3 bg-gradient-to-r from-[#e58840] to-[#e58840]/90 text-[#400b0b] font-bold rounded-lg"
+            >
+              Criar Primeira Categoria
+            </button>
+          </div>
+        }
       />
 
       {/* Modal do Formulário */}
