@@ -3,8 +3,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { Config, Categoria, Produto, Bairro } from '../types';
 
 // Constantes diretas para evitar problemas com env vars
- const GOOGLE_SCRIPT_URL = process.env.GOOGLE_SCRIPT_URL;
-const API_KEY = process.env.API_KEY;
+ const GOOGLE_SCRIPT_URL = process.env.local.VITE_GOOGLE_SCRIPT_URL;
+ const API_KEY = process.env.local.VITE_API_KEY;
 
 export const useCardapioData = () => {
   const [config, setConfig] = useState<Partial<Config>>({
