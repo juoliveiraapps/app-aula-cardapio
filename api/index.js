@@ -95,7 +95,7 @@ if (req.method === 'GET') {
     throw new Error(`Invalid JSON response from Google Script`);
   }
 
-  // ⭐⭐ CORREÇÃO ESPECIAL PARA getConfig ⭐⭐
+
   if (action === 'getConfig') {
     console.log('[CONFIG DEBUG] Dados brutos do Google Script:', {
       type: typeof data,
@@ -122,7 +122,6 @@ if (req.method === 'GET') {
     console.log('[CONFIG] Configuração processada para frontend:', processedConfig);
     data = processedConfig;
   }
-  // ⭐⭐ FIM DA CORREÇÃO ⭐⭐
 
   console.log(`[GET SUCCESS] ${action}:`, 
     action === 'getPedidos' 
@@ -131,6 +130,41 @@ if (req.method === 'GET') {
   );
 
   return res.status(200).json(data);
+}
+
+    //Configuração Parceiros
+
+    if (action === 'getParceiros') {
+  console.log('[PARCEIROS DEBUG] Dados brutos do Google Script:', {
+    type: typeof data,
+    isArray: Array.isArray(data),
+    keys: data ? Object.keys(data) : 'no data'
+  });
+  
+  // Se a API retornar objeto com propriedade 'parceiros'
+  if (data && data.parceiros && Array.isArray(data.parceiros)) {
+    console.log(`[PARCEIROS] Formatando ${data.parceiros.length} parceiros`);
+    data = {
+      success: true,
+      parceiros: data.parceiros
+    };
+  } 
+  // Se retornar array direto
+  else if (Array.isArray(data)) {
+    console.log(`[PARCEIROS] Array direto com ${data.length} parceiros`);
+    data = {
+      success: true,
+      parceiros: data
+    };
+  }
+  // Se não tiver parceiros
+  else {
+    console.log('[PARCEIROS] Sem parceiros ou formato inválido');
+    data = {
+      success: true,
+      parceiros: []
+    };
+  }
 }
     // 🔴 ROTA POST
     if (req.method === 'POST') {
