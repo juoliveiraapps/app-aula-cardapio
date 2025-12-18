@@ -4,6 +4,7 @@ import { X } from 'lucide-react';
 interface CategoryFormProps {
   initialData?: {
     id?: string;
+    categoria_id?: string;
     nome?: string;
     descricao?: string;
     posicao?: number;
@@ -37,7 +38,7 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
 
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
-  // Ícones pré-definidos para cafeteria (com viewBox adequado)
+  // Ícones pré-definidos
   const iconOptions: IconOption[] = [
     { name: 'Café', path: 'M12 2v20 M17 5H9.5a3.5 3.5 0 1 0 0 7H14 M7 19H4' },
     { name: 'Bolo', path: 'M6 2v2 M18 2v2 M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6 M3 10h18 M8 14h8' },
@@ -92,14 +93,30 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
       return;
     }
 
-    // Preparar dados para envio (incluir ID se estiver editando)
-    const dataToSubmit = {
+    // ⭐⭐ CORREÇÃO CRÍTICA: Preparar dados corretamente para o Google Apps Script
+    const dataToSubmit: any = {
       ...formData,
-      ...(initialData?.id && { id: initialData.id })
+      // ⭐ Enviar o campo correto para o Google Script (icone em vez de icone_svg)
+      icone: formData.icone_svg
     };
 
-    console.log('[CategoryForm] Enviando dados:', dataToSubmit);
-    console.log('[CategoryForm] Modo:', initialData?.id ? 'UPDATE' : 'INSERT');
+    // ⭐⭐ IMPORTANTE: Enviar ID para atualização
+    if (initialData?.id) {
+      // O Google Apps Script espera o campo 'id' na aba CATEGORIAS
+      dataToSubmit.id = initialData.id;
+    }
+    
+    // ⭐ Se tiver categoria_id também, enviar para compatibilidade
+    if (initialData?.categoria_id) {
+      dataToSubmit.categoria_id = initialData.categoria_id;
+    }
+
+    console.log('[CategoryForm] Enviando dados PARA API:', {
+      dados: dataToSubmit,
+      modo: initialData?.id ? 'UPDATE' : 'INSERT',
+      temId: !!dataToSubmit.id,
+      idValue: dataToSubmit.id
+    });
 
     const success = await onSubmit(dataToSubmit);
     if (success) {
@@ -120,30 +137,25 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
     setFormData({ ...formData, icone_svg: path });
   };
 
-  // Função corrigida para renderizar SVG path corretamente
+  // Função para renderizar SVG path
   const renderIconSVG = (svgPath: string, size: number = 24) => {
-    // Dividir por espaços, mas manter comandos multi-parte juntos
     const pathCommands = [];
     let currentCommand = '';
     
-    // Processar os comandos do path
     const parts = svgPath.split(' ');
     for (let i = 0; i < parts.length; i++) {
       const part = parts[i];
       
-      // Se a parte começa com uma letra (comando), é um novo comando
       if (part.match(/^[A-Za-z]/)) {
         if (currentCommand) {
           pathCommands.push(currentCommand.trim());
         }
         currentCommand = part;
       } else {
-        // É parte do comando anterior
         currentCommand += ' ' + part;
       }
     }
     
-    // Adicionar o último comando
     if (currentCommand) {
       pathCommands.push(currentCommand.trim());
     }
@@ -161,7 +173,6 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
         className="text-gray-300"
       >
         {pathCommands.map((command, index) => {
-          // Extrair o comando (M, L, C, etc.) e as coordenadas
           const match = command.match(/^([A-Za-z])(.*)$/);
           if (!match) return null;
           
@@ -180,7 +191,6 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
 
   // Função simplificada para renderizar os ícones na grid
   const renderIconPreview = (svgPath: string, size: number = 20) => {
-    // Versão simplificada para a grid de ícones
     const commands = svgPath.split(/(?=[A-Z])/).filter(cmd => cmd.trim());
     
     return (
@@ -214,6 +224,11 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
             <p className="text-gray-400 text-sm">
               {initialData?.id ? 'Atualize os dados da categoria' : 'Preencha os dados da nova categoria'}
             </p>
+            {initialData?.id && (
+              <p className="text-xs text-gray-500 mt-1">
+                ID: {initialData.id}
+              </p>
+            )}
           </div>
           <button
             onClick={onClose}
