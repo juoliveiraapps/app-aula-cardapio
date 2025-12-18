@@ -1,13 +1,27 @@
 export const saveProductToSheet = async (productData: any) => {
   try {
     console.log('📤 Enviando produto para API:', productData);
+    
+   
+    const dataToSend = {
+      ...productData,
+      
+      ...(productData.id && { produto_id: productData.id }),
+      // Remover o campo "id" antigo se existir
+      id: undefined
+    };
+    
+    // Opcional: remover o campo id do objeto
+    delete dataToSend.id;
+    
+    console.log('📤 Dados processados para envio:', dataToSend);
 
     const response = await fetch('/api?action=saveProduct', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(productData),
+      body: JSON.stringify(dataToSend), // ⬅️ Enviar o objeto corrigido
     });
 
     if (!response.ok) {
