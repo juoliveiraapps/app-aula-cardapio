@@ -18,9 +18,6 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
   const [cloudinaryConfigured, setCloudinaryConfigured] = useState<boolean | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-
-// Verificar se o Cloudinary está configurado ao montar o componente
-// No ImageUploader.tsx - Substitua o useEffect atual por este:
 React.useEffect(() => {
   // Verificação apenas para logs/debug
   const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
@@ -31,10 +28,7 @@ React.useEffect(() => {
     temVITE_CLOUDINARY_UPLOAD_PRESET: !!uploadPreset
   });
   
-  // ⭐⭐ NÃO defina cloudinaryConfigured como false aqui!
-  // Deixe como null ou true, mas nunca false para não mostrar
-  // o alerta amarelo. O teste real acontece ao tentar fazer upload.
-  setCloudinaryConfigured(null); // ou remova este estado completamente
+  
 }, []);
 
   const handleFileSelect = () => {
