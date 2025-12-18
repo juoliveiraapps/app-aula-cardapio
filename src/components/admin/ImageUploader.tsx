@@ -18,18 +18,6 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
   const [cloudinaryConfigured, setCloudinaryConfigured] = useState<boolean | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-React.useEffect(() => {
-  // Verificação apenas para logs/debug
-  const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
-  const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
-  
-  console.log('🔍 Variáveis do Cloudinary no front-end:', {
-    temVITE_CLOUDINARY_CLOUD_NAME: !!cloudName,
-    temVITE_CLOUDINARY_UPLOAD_PRESET: !!uploadPreset
-  });
-  
-  
-}, []);
 
   const handleFileSelect = () => {
     if (disabled) return;
@@ -68,76 +56,46 @@ const uploadViaAPI = async (file: File) => {
   setUploading(true);
 
   try {
-    console.log('🌤️ Enviando via API segura...');
-    
+    // 1. Buscar variáveis de ambiente
+    const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+    const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+
+    if (!cloudName || !uploadPreset) {
+      throw new Error('Configuração do Cloudinary não encontrada. Verifique as variáveis VITE_.');
+    }
+
+    // 2. Criar FormData para Cloudinary
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('upload_preset', uploadPreset);
     formData.append('folder', 'cardapio-digital');
-    
-    console.log('📤 Dados do arquivo:', {
-      name: file.name,
-      size: file.size,
-      type: file.type
-    });
-    
-    // ⭐⭐ ENVIA PARA SUA API (chaves ficam no servidor)
-    const response = await fetch('/api?action=uploadImage', {
+
+    // 3. URL de upload direto do Cloudinary
+    const cloudinaryUrl = `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`;
+
+    // 4. Fazer POST direto para Cloudinary (SEM passar pela sua API)
+    const response = await fetch(cloudinaryUrl, {
       method: 'POST',
       body: formData
-      // ⭐⭐ NÃO adicione Content-Type header - o browser define automaticamente como multipart/form-data
+      // NÃO adicione o header 'Content-Type'! O browser define automaticamente como multipart/form-data.
     });
-    
-    console.log('📡 Status da API:', response.status);
-    
+
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ Erro da API:', errorText);
-      
-      let errorMessage = 'Erro no servidor';
-      try {
-        const errorData = JSON.parse(errorText);
-        errorMessage = errorData.message || errorData.error || errorText;
-      } catch {}
-      
-      throw new Error(`Upload falhou: ${errorMessage}`);
+      const errorData = await response.json();
+      throw new Error(`Cloudinary: ${errorData.error?.message || `Erro ${response.status}`}`);
     }
-    
+
     const data = await response.json();
-    console.log('✅ Upload via API bem-sucedido:', data.url);
-    
-    if (data.success && data.url) {
-      onImageUploaded(data.url);
-      alert('✅ Imagem enviada com sucesso!');
-    } else {
-      throw new Error('Resposta inválida da API');
-    }
-    
+
+    // 5. Sucesso! Retornar a URL segura
+    const imageUrl = data.secure_url; // URL otimizada por padrão
+    console.log('✅ Upload direto bem-sucedido:', imageUrl);
+    onImageUploaded(imageUrl);
+
   } catch (error) {
-    console.error('❌ Erro no upload:', error);
-    
-    let errorMessage = 'Erro ao fazer upload da imagem. ';
-    if (error instanceof Error) {
-      errorMessage += error.message;
-    }
-    
-    alert(errorMessage);
-    
-    // Fallback para URL manual
-    setTimeout(() => {
-      if (confirm('Upload falhou. Deseja colar uma URL manualmente?')) {
-        const url = prompt('Cole a URL da imagem:');
-        if (url) {
-          try {
-            new URL(url);
-            onImageUploaded(url);
-            setPreviewUrl(url);
-          } catch {
-            alert('URL inválida.');
-          }
-        }
-      }
-    }, 500);
-    
+    console.error('❌ Erro no upload direto:', error);
+    alert(`Falha no upload: ${error.message}`);
+    // Fallback opcional: permitir colar URL manualmente
   } finally {
     setUploading(false);
     if (fileInputRef.current) {
@@ -145,7 +103,7 @@ const uploadViaAPI = async (file: File) => {
     }
   }
 };
-
+  
   const handleRemoveImage = () => {
     setPreviewUrl(null);
     onImageUploaded('');
