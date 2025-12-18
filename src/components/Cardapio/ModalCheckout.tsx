@@ -24,7 +24,8 @@ interface ModalCheckoutProps {
     formaPagamento?: string;
     comanda?: string;
     querWhatsApp?: boolean;
-  }) => Promise<void>;
+    taxa_entrega?: number;
+  }) => Promise<any>;
 }
 
 export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
@@ -54,7 +55,7 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
   const [mostrarModalConfirmacao, setMostrarModalConfirmacao] = useState(false);
   const [querWhatsApp, setQuerWhatsApp] = useState(true);
   
-  // NOVO: Estados para taxa dinâmica
+  // Estados para taxa dinâmica
   const [taxaEntrega, setTaxaEntrega] = useState(5);
   const [bairrosCadastrados, setBairrosCadastrados] = useState<any[]>([]);
   const [tempoEntrega, setTempoEntrega] = useState('30-40 minutos');
@@ -63,7 +64,7 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
   const total = subtotal + (tipoEntrega === 'delivery' ? taxaEntrega : 0);
   const totalItens = itens.reduce((total, item) => total + item.quantidade, 0);
 
-  // NOVO: Função para buscar bairros da planilha
+  // Função para buscar bairros da planilha
   const buscarBairrosDaPlanilha = async () => {
     try {
       const response = await fetch('/api?action=getBairros');
@@ -77,83 +78,77 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
     }
   };
 
-  // NOVO: Calcular taxa e tempo por bairro
- // Calcular taxa e tempo por bairro - VERSÃO CORRIGIDA
-const calcularTaxaPorBairro = (nomeBairro: string) => {
-  if (!nomeBairro || bairrosCadastrados.length === 0) {
-    console.log('Bairro vazio ou lista vazia');
-    setTaxaEntrega(5);
-    setTempoEntrega('30-40 minutos');
-    return;
-  }
-  
-  // Log para debug
-  console.log('Buscando bairro:', nomeBairro);
-  console.log('Bairros disponíveis:', bairrosCadastrados.map(b => b.Bairro));
-  
-  // Normalizar o nome do bairro para comparação
-  const normalizarTexto = (texto: string) => {
-    return texto
-      .toLowerCase()
-      .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Remove acentos
-      .trim()
-      .replace(/\s+/g, ' '); // Remove espaços extras
-  };
-  
-  const bairroNormalizado = normalizarTexto(nomeBairro);
-  
-  const bairroEncontrado = bairrosCadastrados.find(b => {
-    if (!b.Bairro) return false;
+  // Calcular taxa e tempo por bairro
+  const calcularTaxaPorBairro = (nomeBairro: string) => {
+    if (!nomeBairro || bairrosCadastrados.length === 0) {
+      console.log('Bairro vazio ou lista vazia');
+      setTaxaEntrega(5);
+      setTempoEntrega('30-40 minutos');
+      return;
+    }
     
-    const bairroCadastradoNormalizado = normalizarTexto(b.Bairro.toString());
+    // Normalizar o nome do bairro para comparação
+    const normalizarTexto = (texto: string) => {
+      return texto
+        .toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .trim()
+        .replace(/\s+/g, ' ');
+    };
     
-    // Verifica se é igual ou se contém (ex: "Centro" vs "Centro Histórico")
-    const matchExato = bairroCadastradoNormalizado === bairroNormalizado;
-    const matchContem = bairroCadastradoNormalizado.includes(bairroNormalizado) || 
-                       bairroNormalizado.includes(bairroCadastradoNormalizado);
+    const bairroNormalizado = normalizarTexto(nomeBairro);
     
-    return (matchExato || matchContem) && b.ativo !== false;
-  });
-  
-  if (bairroEncontrado) {
-    console.log('✅ Bairro encontrado:', bairroEncontrado.Bairro, 'Taxa:', bairroEncontrado.taxa_entrega);
-    setTaxaEntrega(parseFloat(bairroEncontrado.taxa_entrega) || 5);
-    
-    // Formatar tempo de entrega
-    const tempoMin = parseInt(bairroEncontrado.tempo_min) || 30;
-    const tempoMax = parseInt(bairroEncontrado.tempo_max) || 40;
-    setTempoEntrega(`${tempoMin}-${tempoMax} minutos`);
-  } else {
-    console.log('❌ Bairro NÃO encontrado:', nomeBairro);
-    console.log('Tentou normalizado como:', bairroNormalizado);
-    
-    // Tentar fallback: buscar por partes do nome
-    const palavrasBairro = bairroNormalizado.split(' ');
-    const bairroFallback = bairrosCadastrados.find(b => {
-      if (!b.Bairro || b.ativo === false) return false;
-      const bairroCad = normalizarTexto(b.Bairro.toString());
+    const bairroEncontrado = bairrosCadastrados.find(b => {
+      if (!b.Bairro) return false;
       
-      // Verificar se alguma palavra do bairro digitado existe no bairro cadastrado
-      return palavrasBairro.some(palavra => 
-        palavra.length > 3 && bairroCad.includes(palavra)
-      );
+      const bairroCadastradoNormalizado = normalizarTexto(b.Bairro.toString());
+      
+      // Verifica se é igual ou se contém
+      const matchExato = bairroCadastradoNormalizado === bairroNormalizado;
+      const matchContem = bairroCadastradoNormalizado.includes(bairroNormalizado) || 
+                         bairroNormalizado.includes(bairroCadastradoNormalizado);
+      
+      return (matchExato || matchContem) && b.ativo !== false;
     });
     
-    if (bairroFallback) {
-      console.log('✅ Bairro encontrado por fallback:', bairroFallback.Bairro);
-      setTaxaEntrega(parseFloat(bairroFallback.taxa_entrega) || 5);
-      const tempoMin = parseInt(bairroFallback.tempo_min) || 30;
-      const tempoMax = parseInt(bairroFallback.tempo_max) || 40;
+    if (bairroEncontrado) {
+      console.log('✅ Bairro encontrado:', bairroEncontrado.Bairro, 'Taxa:', bairroEncontrado.taxa_entrega);
+      setTaxaEntrega(parseFloat(bairroEncontrado.taxa_entrega) || 5);
+      
+      // Formatar tempo de entrega
+      const tempoMin = parseInt(bairroEncontrado.tempo_min) || 30;
+      const tempoMax = parseInt(bairroEncontrado.tempo_max) || 40;
       setTempoEntrega(`${tempoMin}-${tempoMax} minutos`);
     } else {
-      // Não encontrado mesmo com fallback
-      setTaxaEntrega(0);
-      setTempoEntrega('Não atendemos este bairro');
+      console.log('❌ Bairro NÃO encontrado:', nomeBairro);
+      
+      // Tentar fallback: buscar por partes do nome
+      const palavrasBairro = bairroNormalizado.split(' ');
+      const bairroFallback = bairrosCadastrados.find(b => {
+        if (!b.Bairro || b.ativo === false) return false;
+        const bairroCad = normalizarTexto(b.Bairro.toString());
+        
+        // Verificar se alguma palavra do bairro digitado existe no bairro cadastrado
+        return palavrasBairro.some(palavra => 
+          palavra.length > 3 && bairroCad.includes(palavra)
+        );
+      });
+      
+      if (bairroFallback) {
+        console.log('✅ Bairro encontrado por fallback:', bairroFallback.Bairro);
+        setTaxaEntrega(parseFloat(bairroFallback.taxa_entrega) || 5);
+        const tempoMin = parseInt(bairroFallback.tempo_min) || 30;
+        const tempoMax = parseInt(bairroFallback.tempo_max) || 40;
+        setTempoEntrega(`${tempoMin}-${tempoMax} minutos`);
+      } else {
+        // Não encontrado mesmo com fallback
+        setTaxaEntrega(0);
+        setTempoEntrega('Não atendemos este bairro');
+      }
     }
-  }
-};
+  };
 
-  // NOVO: Buscar bairros quando abrir modal
+  // Buscar bairros quando abrir modal
   useEffect(() => {
     if (isOpen && tipoEntrega === 'delivery') {
       buscarBairrosDaPlanilha();
@@ -174,7 +169,7 @@ const calcularTaxaPorBairro = (nomeBairro: string) => {
           setCidade(data.localidade || '');
           setCepValido(true);
           
-          // NOVO: Calcular taxa quando encontrar bairro
+          // Calcular taxa quando encontrar bairro
           if (data.bairro) {
             calcularTaxaPorBairro(data.bairro);
           }
@@ -209,7 +204,7 @@ const calcularTaxaPorBairro = (nomeBairro: string) => {
     return () => clearTimeout(timer);
   }, [cep]);
 
-  // NOVO: Efeito para recalcular taxa quando bairro mudar manualmente
+  // Efeito para recalcular taxa quando bairro mudar manualmente
   useEffect(() => {
     if (bairro && bairrosCadastrados.length > 0) {
       const timer = setTimeout(() => {
@@ -241,6 +236,7 @@ const calcularTaxaPorBairro = (nomeBairro: string) => {
         setQuerWhatsApp(true);
         setTaxaEntrega(5);
         setTempoEntrega('30-40 minutos');
+        setMostrarModalConfirmacao(false);
       }
     }
   }, [isOpen, tipoEntrega, comandaNumero]);
@@ -262,180 +258,157 @@ const calcularTaxaPorBairro = (nomeBairro: string) => {
     return opcoes.length > 0 ? ` (${opcoes.join(', ')})` : '';
   };
 
-  // Função para confirmar pedido (consumo local)
-  const handleConfirmarPedidoLocal = async () => {
-    await onFinalizarPedido({
-      observacoes,
-      formaPagamento: 'local',
-      comanda: comandaNumero,
-      querWhatsApp: false
+  // Função para gerar mensagem do pedido
+  const gerarMensagemPedido = (pedidoId: string) => {
+    let mensagem = `*NOVO PEDIDO #${pedidoId}*\n\n`;
+    mensagem += `👤 *Cliente:* ${nome || 'Consumo Local'}\n`;
+    
+    if (telefone && tipoEntrega !== 'local') {
+      mensagem += `📞 *Telefone:* ${telefone}\n`;
+    }
+    
+    mensagem += `📍 *Tipo:* ${
+      tipoEntrega === 'local' ? 'Consumo Local' : 
+      tipoEntrega === 'retirada' ? 'Retirada' : 'Delivery'
+    }\n`;
+    
+    if (tipoEntrega === 'delivery') {
+      mensagem += `🏠 *Endereço:* ${endereco}, ${numero}\n`;
+      if (complemento) mensagem += `🏢 *Complemento:* ${complemento}\n`;
+      mensagem += `🗺️ *Bairro:* ${bairro}\n`;
+      mensagem += `💰 *Taxa entrega:* R$ ${taxaEntrega.toFixed(2)}\n`;
+    }
+    
+    if (tipoEntrega === 'local' && comandaNumero) {
+      mensagem += `🏷️ *Comanda:* #${comandaNumero}\n`;
+    }
+    
+    mensagem += `\n*ITENS:*\n`;
+    itens.forEach((item) => {
+      const opcoesFormatadas = formatarOpcoesItem(item);
+      mensagem += `${item.quantidade}x ${item.produto.nome}${opcoesFormatadas} - R$ ${item.precoTotal.toFixed(2)}\n`;
     });
+    
+    mensagem += `\n*TOTAL: R$ ${total.toFixed(2)}*\n`;
+    mensagem += `💳 *Pagamento:* ${
+      formaPagamento === 'dinheiro' ? 'Dinheiro' : 
+      formaPagamento === 'cartao' ? 'Cartão' : 'PIX'
+    }\n`;
+    
+    if (observacoes) {
+      mensagem += `📝 *Observações:* ${observacoes}\n`;
+    }
+    
+    return mensagem;
+  };
+
+  // Função para processar resposta e abrir WhatsApp
+  const handleRespostaPedido = (resposta: any) => {
+    if (resposta.success) {
+      console.log('✅ Pedido salvo, ID:', resposta.pedido_id);
+      
+      // Gerar mensagem
+      const mensagemPedido = gerarMensagemPedido(resposta.pedido_id);
+      
+      // Pegar telefone do estabelecimento (da config)
+      const telefoneEstabelecimento = config?.telefone_whatsapp || '';
+      
+      console.log('📱 Config WhatsApp:', {
+        temTelefone: !!telefoneEstabelecimento,
+        telefone: telefoneEstabelecimento,
+        querWhatsApp: querWhatsApp
+      });
+      
+      // Verificar se deve abrir WhatsApp
+      if (querWhatsApp && telefoneEstabelecimento) {
+        console.log('🔄 Preparando para abrir WhatsApp...');
+        
+        // Pequeno delay para garantir visual feedback
+        setTimeout(() => {
+          try {
+            const resultado = enviarParaWhatsApp(
+              mensagemPedido, 
+              telefoneEstabelecimento,
+              true
+            );
+            
+            if (!resultado.sucesso) {
+              console.warn('⚠️ WhatsApp não abriu automaticamente');
+              // Opcional: mostrar link para usuário
+              if (confirm('WhatsApp não abriu automaticamente. Deseja copiar o link?')) {
+                navigator.clipboard.writeText(resultado.url);
+                alert('Link copiado! Cole no WhatsApp.');
+              }
+            }
+          } catch (error) {
+            console.error('❌ Erro ao abrir WhatsApp:', error);
+          }
+        }, 1500);
+      } else {
+        console.log('ℹ️ WhatsApp não solicitado ou telefone não configurado');
+      }
+      
+      // Fechar modal após sucesso
+      onClose();
+    }
   };
 
   // Função para finalizar pedido (retirada e delivery)
- const handleFinalizarOutrosTipos = async () => {
-  if (!nome || !telefone) {
-    alert('Por favor, preencha seu nome e telefone.');
-    return;
-  }
+  const handleFinalizarOutrosTipos = async () => {
+    if (!nome || !telefone) {
+      alert('Por favor, preencha seu nome e telefone.');
+      return;
+    }
 
-  if (tipoEntrega === 'delivery' && (!cepValido || !endereco || !numero || !bairro || !cidade)) {
-    alert('Por favor, preencha todos os campos obrigatórios do endereço.');
-    return;
-  }
+    if (tipoEntrega === 'delivery' && (!cepValido || !endereco || !numero || !bairro || !cidade)) {
+      alert('Por favor, preencha todos os campos obrigatórios do endereço.');
+      return;
+    }
 
-  if (tipoEntrega === 'delivery' && taxaEntrega === 0) {
-    alert('Não atendemos este bairro. Por favor, verifique o endereço ou escolha retirada.');
-    return;
-  }
+    if (tipoEntrega === 'delivery' && taxaEntrega === 0) {
+      alert('Não atendemos este bairro. Por favor, verifique o endereço ou escolha retirada.');
+      return;
+    }
 
-  // ⭐⭐ CHAMAR onFinalizarPedido e PROCESSAR RESPOSTA
-  try {
-    await onFinalizarPedido({
-      nome,
-      telefone,
-      ...(tipoEntrega === 'delivery' && {
-        endereco,
-        numero,
-        complemento,
-        bairro,
-        cidade,
-        referencia,
-        taxa_entrega: taxaEntrega  // ⭐⭐ ENVIAR TAXA CORRETA
-      }),
-      observacoes,
-      formaPagamento,
-      querWhatsApp
-    }).then(handleRespostaPedido); // ⭐⭐ ADICIONE ESTA LINHA
-    
-  } catch (error) {
-    console.error('Erro ao finalizar pedido:', error);
-  }
-};
+    try {
+      const dadosPedido = {
+        nome,
+        telefone,
+        ...(tipoEntrega === 'delivery' && {
+          endereco,
+          numero,
+          complemento,
+          bairro,
+          cidade,
+          referencia,
+          taxa_entrega: taxaEntrega
+        }),
+        observacoes,
+        formaPagamento,
+        querWhatsApp
+      };
+      
+      const resposta = await onFinalizarPedido(dadosPedido);
+      handleRespostaPedido(resposta);
+    } catch (error) {
+      console.error('Erro ao finalizar pedido:', error);
+    }
+  };
 
   const handleConfirmarPedidoLocal = async () => {
-  // ⭐⭐ CHAMAR onFinalizarPedido e PROCESSAR RESPOSTA
-  try {
-    await onFinalizarPedido({
-      observacoes,
-      formaPagamento: 'local',
-      comanda: comandaNumero,
-      querWhatsApp: false
-    }).then(handleRespostaPedido); // ⭐⭐ ADICIONE ESTA LINHA
-    
-  } catch (error) {
-    console.error('Erro ao confirmar pedido local:', error);
-  }
-};
-
-   // Função para gerar mensagem do pedido (adicione APÓS os outros estados)
-const gerarMensagemPedido = (pedidoId: string) => {
-  let mensagem = `*NOVO PEDIDO #${pedidoId}*\n\n`;
-  mensagem += `👤 *Cliente:* ${nome || 'Consumo Local'}\n`;
-  
-  if (telefone && tipoEntrega !== 'local') {
-    mensagem += `📞 *Telefone:* ${telefone}\n`;
-  }
-  
-  mensagem += `📍 *Tipo:* ${
-    tipoEntrega === 'local' ? 'Consumo Local' : 
-    tipoEntrega === 'retirada' ? 'Retirada' : 'Delivery'
-  }\n`;
-  
-  if (tipoEntrega === 'delivery') {
-    mensagem += `🏠 *Endereço:* ${endereco}, ${numero}\n`;
-    mensagem += `🗺️ *Bairro:* ${bairro}\n`;
-    mensagem += `💰 *Taxa entrega:* R$ ${taxaEntrega.toFixed(2)}\n`;
-  }
-  
-  if (tipoEntrega === 'local' && comandaNumero) {
-    mensagem += `🏷️ *Comanda:* #${comandaNumero}\n`;
-  }
-  
-  mensagem += `\n*ITENS:*\n`;
-  itens.forEach((item) => {
-    const opcoesFormatadas = formatarOpcoesItem(item);
-    mensagem += `${item.quantidade}x ${item.produto.nome}${opcoesFormatadas} - R$ ${item.precoTotal.toFixed(2)}\n`;
-  });
-  
-  mensagem += `\n*TOTAL: R$ ${total.toFixed(2)}*\n`;
-  mensagem += `💳 *Pagamento:* ${
-    formaPagamento === 'dinheiro' ? 'Dinheiro' : 
-    formaPagamento === 'cartao' ? 'Cartão' : 'PIX'
-  }\n`;
-  
-  if (observacoes) {
-    mensagem += `📝 *Observações:* ${observacoes}\n`;
-  }
-  
-  return mensagem;
-};
-
-// Função para processar resposta e abrir WhatsApp
-const handleRespostaPedido = (resposta: any) => {
-  if (resposta.success) {
-    console.log('✅ Pedido salvo, ID:', resposta.pedido_id);
-    
-    // Gerar mensagem
-    const mensagemPedido = gerarMensagemPedido(resposta.pedido_id);
-    
-    // Pegar telefone do estabelecimento (da config)
-    const telefoneEstabelecimento = config?.telefone_whatsapp || '';
-    
-    console.log('📱 Config WhatsApp:', {
-      temTelefone: !!telefoneEstabelecimento,
-      telefone: telefoneEstabelecimento,
-      querWhatsApp: querWhatsApp
-    });
-    
-    // Verificar se deve abrir WhatsApp
-    if (querWhatsApp && telefoneEstabelecimento) {
-      console.log('🔄 Preparando para abrir WhatsApp...');
+    try {
+      const resposta = await onFinalizarPedido({
+        observacoes,
+        formaPagamento: 'local',
+        comanda: comandaNumero,
+        querWhatsApp: false
+      });
       
-      // Pequeno delay para garantir visual feedback
-      setTimeout(() => {
-        try {
-          const resultado = enviarParaWhatsApp(
-            mensagemPedido, 
-            telefoneEstabelecimento,
-            true
-          );
-          
-          if (!resultado.sucesso) {
-            console.warn('⚠️ WhatsApp não abriu automaticamente');
-            // Opcional: mostrar link para usuário
-            if (confirm('WhatsApp não abriu automaticamente. Deseja copiar o link?')) {
-              navigator.clipboard.writeText(resultado.url);
-              alert('Link copiado! Cole no WhatsApp.');
-            }
-          }
-        } catch (error) {
-          console.error('❌ Erro ao abrir WhatsApp:', error);
-        }
-      }, 1500);
-    } else {
-      console.log('ℹ️ WhatsApp não solicitado ou telefone não configurado');
+      handleRespostaPedido(resposta);
+    } catch (error) {
+      console.error('Erro ao confirmar pedido local:', error);
     }
-  }
-};
-
-  await onFinalizarPedido({
-    nome,
-    telefone,
-    ...(tipoEntrega === 'delivery' && {
-      endereco,
-      numero,
-      complemento,
-      bairro,
-      cidade,
-      referencia,
-      taxa_entrega: taxaEntrega
-    }),
-    observacoes,
-    formaPagamento,
-    querWhatsApp
-  });
-};
+  };
 
   // Modal de confirmação para consumo no local
   if (mostrarModalConfirmacao && tipoEntrega === 'local') {
@@ -818,7 +791,7 @@ const handleRespostaPedido = (resposta: any) => {
                             disabled={enviando}
                             className="w-full p-3 border border-[#400b0b]/20 rounded-lg focus:ring-2 focus:ring-[#e58840] focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed text-[#400b0b]"
                           />
-                          {/* NOVO: Mostrar se bairro é atendido */}
+                          {/* Mostrar se bairro é atendido */}
                           {taxaEntrega === 0 && (
                             <p className="text-sm text-red-600 mt-1">
                               ⚠️ Não atendemos este bairro
