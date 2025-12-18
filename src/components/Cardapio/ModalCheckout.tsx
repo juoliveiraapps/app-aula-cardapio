@@ -52,11 +52,61 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
   const [cepValido, setCepValido] = useState(false);
   const [mostrarModalConfirmacao, setMostrarModalConfirmacao] = useState(false);
   const [querWhatsApp, setQuerWhatsApp] = useState(true);
+  
+  // NOVO: Estados para taxa dinâmica
+  const [taxaEntrega, setTaxaEntrega] = useState(5);
+  const [bairrosCadastrados, setBairrosCadastrados] = useState<any[]>([]);
+  const [tempoEntrega, setTempoEntrega] = useState('30-40 minutos');
 
   const subtotal = itens.reduce((total, item) => total + item.precoTotal, 0);
-  const taxaEntrega = tipoEntrega === 'delivery' ? 5 : 0;
-  const total = subtotal + taxaEntrega;
+  const total = subtotal + (tipoEntrega === 'delivery' ? taxaEntrega : 0);
   const totalItens = itens.reduce((total, item) => total + item.quantidade, 0);
+
+  // NOVO: Função para buscar bairros da planilha
+  const buscarBairrosDaPlanilha = async () => {
+    try {
+      const response = await fetch('/api?action=getBairros');
+      if (response.ok) {
+        const data = await response.json();
+        const bairrosArray = Array.isArray(data) ? data : data.bairros || [];
+        setBairrosCadastrados(bairrosArray);
+      }
+    } catch (error) {
+      console.error('Erro ao buscar bairros:', error);
+    }
+  };
+
+  // NOVO: Calcular taxa e tempo por bairro
+  const calcularTaxaPorBairro = (nomeBairro: string) => {
+    if (!nomeBairro || bairrosCadastrados.length === 0) {
+      setTaxaEntrega(5);
+      setTempoEntrega('30-40 minutos');
+      return;
+    }
+    
+    const bairroEncontrado = bairrosCadastrados.find(b => 
+      b.Bairro && b.Bairro.toString().toLowerCase() === nomeBairro.trim().toLowerCase() && b.ativo !== false
+    );
+    
+    if (bairroEncontrado) {
+      setTaxaEntrega(parseFloat(bairroEncontrado.taxa_entrega) || 5);
+      
+      // Formatar tempo de entrega
+      const tempoMin = parseInt(bairroEncontrado.tempo_min) || 30;
+      const tempoMax = parseInt(bairroEncontrado.tempo_max) || 40;
+      setTempoEntrega(`${tempoMin}-${tempoMax} minutos`);
+    } else {
+      setTaxaEntrega(0);
+      setTempoEntrega('Não atendemos este bairro');
+    }
+  };
+
+  // NOVO: Buscar bairros quando abrir modal
+  useEffect(() => {
+    if (isOpen && tipoEntrega === 'delivery') {
+      buscarBairrosDaPlanilha();
+    }
+  }, [isOpen, tipoEntrega]);
 
   // Buscar endereço pelo CEP
   const buscarCep = async () => {
@@ -71,17 +121,25 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
           setBairro(data.bairro || '');
           setCidade(data.localidade || '');
           setCepValido(true);
+          
+          // NOVO: Calcular taxa quando encontrar bairro
+          if (data.bairro) {
+            calcularTaxaPorBairro(data.bairro);
+          }
         } else {
           setCepValido(false);
+          setTaxaEntrega(5);
         }
       } catch (error) {
         console.error('Erro ao buscar CEP:', error);
         setCepValido(false);
+        setTaxaEntrega(5);
       } finally {
         setBuscandoCep(false);
       }
     } else {
       setCepValido(false);
+      setTaxaEntrega(5);
     }
   };
 
@@ -92,20 +150,30 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
         buscarCep();
       } else {
         setCepValido(false);
+        setTaxaEntrega(5);
       }
     }, 1000);
 
     return () => clearTimeout(timer);
   }, [cep]);
 
+  // NOVO: Efeito para recalcular taxa quando bairro mudar manualmente
+  useEffect(() => {
+    if (bairro && bairrosCadastrados.length > 0) {
+      const timer = setTimeout(() => {
+        calcularTaxaPorBairro(bairro);
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [bairro, bairrosCadastrados]);
+
   // Resetar campos quando o modal abrir
   useEffect(() => {
     if (isOpen) {
       if (tipoEntrega === 'local' && comandaNumero) {
-        // Para consumo local, já mostra modal de confirmação
         setMostrarModalConfirmacao(true);
       } else {
-        // Para retirada e delivery, resetar estados
         setNome('');
         setTelefone('');
         setCep('');
@@ -119,6 +187,8 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
         setFormaPagamento('dinheiro');
         setCepValido(false);
         setQuerWhatsApp(true);
+        setTaxaEntrega(5);
+        setTempoEntrega('30-40 minutos');
       }
     }
   }, [isOpen, tipoEntrega, comandaNumero]);
@@ -146,7 +216,7 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
       observacoes,
       formaPagamento: 'local',
       comanda: comandaNumero,
-      querWhatsApp: false // Consumo local não envia WhatsApp
+      querWhatsApp: false
     });
   };
 
@@ -159,6 +229,12 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
 
     if (tipoEntrega === 'delivery' && (!cepValido || !endereco || !numero || !bairro || !cidade)) {
       alert('Por favor, preencha todos os campos obrigatórios do endereço.');
+      return;
+    }
+
+    // NOVO: Verificar se atende o bairro
+    if (tipoEntrega === 'delivery' && taxaEntrega === 0) {
+      alert('Não atendemos este bairro. Por favor, verifique o endereço ou escolha retirada.');
       return;
     }
 
@@ -377,7 +453,7 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
                       ? 'Pronto em 15-20 minutos'
                       : tipoEntrega === 'retirada'
                       ? 'Pronto em 10-15 minutos'
-                      : `30-40 minutos • Taxa de entrega: R$ 5,00`}
+                      : `${tempoEntrega} • Taxa de entrega: R$ ${taxaEntrega.toFixed(2).replace('.', ',')}`}
                   </p>
                 </div>
               </div>
@@ -560,6 +636,12 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
                             disabled={enviando}
                             className="w-full p-3 border border-[#400b0b]/20 rounded-lg focus:ring-2 focus:ring-[#e58840] focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed text-[#400b0b]"
                           />
+                          {/* NOVO: Mostrar se bairro é atendido */}
+                          {taxaEntrega === 0 && (
+                            <p className="text-sm text-red-600 mt-1">
+                              ⚠️ Não atendemos este bairro
+                            </p>
+                          )}
                         </div>
 
                         <div>
@@ -595,85 +677,80 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
                 </div>
               )}
 
-           {/* Forma de Pagamento */}
-<div className="mb-6">
-  <h3 className="font-bold text-[#400b0b] mb-3">Forma de Pagamento</h3>
-  <div className="space-y-2">
-    {['dinheiro', 'cartao', 'pix'].map((forma) => (
-      <label 
-        key={forma} 
-        className={`flex items-center p-3 rounded-lg cursor-pointer transition-all duration-300 ${
-          formaPagamento === forma
-            ? 'bg-[#e58840] text-[#400b0b] border-2 border-[#e58840] shadow-md transform scale-[1.02]'
-            : 'bg-white text-[#400b0b] border-2 border-[#400b0b]/20 hover:border-[#e58840]/50 hover:bg-[#e58840]/5'
-        } ${enviando ? 'opacity-50 cursor-not-allowed' : ''}`}
-      >
-        {/* Radio button personalizado com checkmark visível */}
-        <div className={`relative w-5 h-5 rounded-full border-2 flex items-center justify-center mr-3 transition-all duration-300 ${
-          formaPagamento === forma
-            ? 'border-[#400b0b] bg-[#400b0b]'
-            : 'border-[#400b0b]/40 bg-white'
-        }`}>
-          {formaPagamento === forma && (
-            <div className="w-2 h-2 rounded-full bg-[#e58840]"></div>
-          )}
-        </div>
-        
-        {/* Input hidden */}
-        <input
-          type="radio"
-          name="formaPagamento"
-          value={forma}
-          checked={formaPagamento === forma}
-          onChange={(e) => setFormaPagamento(e.target.value)}
-          disabled={enviando}
-          className="hidden"
-        />
-        
-        {/* Texto da opção */}
-        <div className="flex-1">
-          <span className={`font-medium ${
-            formaPagamento === forma ? 'font-bold' : ''
-          }`}>
-            {forma === 'dinheiro' ? 'Dinheiro' : 
-             forma === 'cartao' ? 'Cartão na entrega/retirada' : 
-             'PIX'}
-          </span>
-          
-          {/* Descrição adicional para PIX */}
-          {forma === 'pix' && (
-            <p className={`text-xs mt-1 ${
-              formaPagamento === forma ? 'text-[#400b0b]/90' : 'text-[#400b0b]/60'
-            }`}>
-              QR Code será mostrado na confirmação
-            </p>
-          )}
-        </div>
-        
-        {/* Ícone para cada opção - mais visível quando selecionado */}
-        <div className={`ml-2 p-2 rounded-full ${
-          formaPagamento === forma 
-            ? 'bg-[#400b0b] text-[#e58840]' 
-            : 'bg-[#400b0b]/10 text-[#400b0b]'
-        }`}>
-          {forma === 'dinheiro' ? (
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          ) : forma === 'cartao' ? (
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-            </svg>
-          ) : (
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-            </svg>
-          )}
-        </div>
-      </label>
-    ))}
-  </div>
-</div>
+              {/* Forma de Pagamento */}
+              <div className="mb-6">
+                <h3 className="font-bold text-[#400b0b] mb-3">Forma de Pagamento</h3>
+                <div className="space-y-2">
+                  {['dinheiro', 'cartao', 'pix'].map((forma) => (
+                    <label 
+                      key={forma} 
+                      className={`flex items-center p-3 rounded-lg cursor-pointer transition-all duration-300 ${
+                        formaPagamento === forma
+                          ? 'bg-[#e58840] text-[#400b0b] border-2 border-[#e58840] shadow-md transform scale-[1.02]'
+                          : 'bg-white text-[#400b0b] border-2 border-[#400b0b]/20 hover:border-[#e58840]/50 hover:bg-[#e58840]/5'
+                      } ${enviando ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      <div className={`relative w-5 h-5 rounded-full border-2 flex items-center justify-center mr-3 transition-all duration-300 ${
+                        formaPagamento === forma
+                          ? 'border-[#400b0b] bg-[#400b0b]'
+                          : 'border-[#400b0b]/40 bg-white'
+                      }`}>
+                        {formaPagamento === forma && (
+                          <div className="w-2 h-2 rounded-full bg-[#e58840]"></div>
+                        )}
+                      </div>
+                      
+                      <input
+                        type="radio"
+                        name="formaPagamento"
+                        value={forma}
+                        checked={formaPagamento === forma}
+                        onChange={(e) => setFormaPagamento(e.target.value)}
+                        disabled={enviando}
+                        className="hidden"
+                      />
+                      
+                      <div className="flex-1">
+                        <span className={`font-medium ${
+                          formaPagamento === forma ? 'font-bold' : ''
+                        }`}>
+                          {forma === 'dinheiro' ? 'Dinheiro' : 
+                           forma === 'cartao' ? 'Cartão na entrega/retirada' : 
+                           'PIX'}
+                        </span>
+                        
+                        {forma === 'pix' && (
+                          <p className={`text-xs mt-1 ${
+                            formaPagamento === forma ? 'text-[#400b0b]/90' : 'text-[#400b0b]/60'
+                          }`}>
+                            QR Code será mostrado na confirmação
+                          </p>
+                        )}
+                      </div>
+                      
+                      <div className={`ml-2 p-2 rounded-full ${
+                        formaPagamento === forma 
+                          ? 'bg-[#400b0b] text-[#e58840]' 
+                          : 'bg-[#400b0b]/10 text-[#400b0b]'
+                      }`}>
+                        {forma === 'dinheiro' ? (
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        ) : forma === 'cartao' ? (
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                          </svg>
+                        ) : (
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                          </svg>
+                        )}
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
 
               {/* Opção WhatsApp (apenas para retirada e delivery) */}
               {(tipoEntrega === 'retirada' || tipoEntrega === 'delivery') && (
@@ -747,7 +824,7 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
               {tipoEntrega === 'delivery' && (
                 <div className="flex justify-between text-sm text-[#400b0b]">
                   <span>Taxa de entrega:</span>
-                  <span>R$ 5,00</span>
+                  <span>R$ {taxaEntrega.toFixed(2).replace('.', ',')}</span>
                 </div>
               )}
               
@@ -764,10 +841,8 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
           <button
             onClick={() => {
               if (tipoEntrega === 'local') {
-                // Para consumo local, mostra modal de confirmação
                 setMostrarModalConfirmacao(true);
               } else {
-                // Para retirada e delivery, finalizar
                 handleFinalizarOutrosTipos();
               }
             }}
