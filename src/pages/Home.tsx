@@ -19,7 +19,6 @@ export function Home() {
   const [scrollPosition, setScrollPosition] = useState(0);
 
   // Buscar parceiros da API
-  // Buscar parceiros da API
 useEffect(() => {
   const fetchParceiros = async () => {
     try {
