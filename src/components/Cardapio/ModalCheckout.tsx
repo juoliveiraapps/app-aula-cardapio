@@ -729,6 +729,7 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
                       </div>
                       {buscandoCep && <p className="text-xs text-[#400b0b]/60 mt-1">Buscando endereço...</p>}
                     
+               {/* ⭐⭐ MENSAGEM DE ERRO DO CEP */}
   {!buscandoCep && cep.length === 8 && !cepValido && (
     <p className="text-sm text-red-600 mt-1 flex items-center">
       <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -738,7 +739,6 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
     </p>
   )}
 </div>
-                    </div>
 
                     {/* Campos de endereço só aparecem após CEP válido */}
                     {cepValido && (
