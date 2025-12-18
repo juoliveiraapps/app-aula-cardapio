@@ -82,82 +82,67 @@ const uploadViaAPI = async (file: File) => {
   setUploading(true);
 
   try {
-    console.log('🌤️ Enviando para Cloudinary...');
+    console.log('🌤️ Enviando via API segura...');
     
-   
-    const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'dm5scqxho'; 
-    const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'cardapio_upload'; 
-    console.log('🔧 Config Cloudinary:', { cloudName, uploadPreset });
-    
-       
-   
-    if (!cloudName || cloudName === '' || cloudName.length < 3) {
-      throw new Error('Cloudinary não configurado. Cloud Name inválido.');
-    }
-    // Enviar DIRETO para Cloudinary
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('upload_preset', uploadPreset);
     formData.append('folder', 'cardapio-digital');
     
-    const cloudinaryUrl = `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`;
-    
-    console.log('🔗 Enviando para:', cloudinaryUrl);
-    console.log('📦 Dados:', {
-      file: file.name,
+    console.log('📤 Dados do arquivo:', {
+      name: file.name,
       size: file.size,
-      type: file.type,
-      preset: uploadPreset
+      type: file.type
     });
     
-    const response = await fetch(cloudinaryUrl, {
+    // ⭐⭐ ENVIA PARA SUA API (chaves ficam no servidor)
+    const response = await fetch('/api?action=uploadImage', {
       method: 'POST',
       body: formData
-      // ⭐⭐ NÃO adicione headers - Cloudinary precisa do Content-Type multipart
+      // ⭐⭐ NÃO adicione Content-Type header - o browser define automaticamente como multipart/form-data
     });
-
-    console.log('📡 Status:', response.status, response.statusText);
     
-    const responseText = await response.text();
-    console.log('📄 Resposta:', responseText.substring(0, 500));
+    console.log('📡 Status da API:', response.status);
     
     if (!response.ok) {
-      // Tentar parsear erro do Cloudinary
+      const errorText = await response.text();
+      console.error('❌ Erro da API:', errorText);
+      
+      let errorMessage = 'Erro no servidor';
       try {
-        const errorData = JSON.parse(responseText);
-        throw new Error(`Cloudinary: ${errorData.error?.message || 'Erro desconhecido'}`);
-      } catch {
-        throw new Error(`Erro ${response.status}: ${responseText.substring(0, 200)}`);
-      }
+        const errorData = JSON.parse(errorText);
+        errorMessage = errorData.message || errorData.error || errorText;
+      } catch {}
+      
+      throw new Error(`Upload falhou: ${errorMessage}`);
     }
     
-    const data = JSON.parse(responseText);
-    console.log('✅ Upload bem-sucedido! URL:', data.secure_url);
+    const data = await response.json();
+    console.log('✅ Upload via API bem-sucedido:', data.url);
     
-    // Atualizar a imagem no componente pai
-    onImageUploaded(data.secure_url);
-    
-    // Feedback visual
-    alert('✅ Imagem enviada com sucesso!');
+    if (data.success && data.url) {
+      onImageUploaded(data.url);
+      alert('✅ Imagem enviada com sucesso!');
+    } else {
+      throw new Error('Resposta inválida da API');
+    }
     
   } catch (error) {
     console.error('❌ Erro no upload:', error);
     
     let errorMessage = 'Erro ao fazer upload da imagem. ';
-    
     if (error instanceof Error) {
       errorMessage += error.message;
     }
     
     alert(errorMessage);
     
-    // Opção de fallback: colar URL manualmente
+    // Fallback para URL manual
     setTimeout(() => {
       if (confirm('Upload falhou. Deseja colar uma URL manualmente?')) {
         const url = prompt('Cole a URL da imagem:');
         if (url) {
           try {
-            new URL(url); // Validar URL
+            new URL(url);
             onImageUploaded(url);
             setPreviewUrl(url);
           } catch {
