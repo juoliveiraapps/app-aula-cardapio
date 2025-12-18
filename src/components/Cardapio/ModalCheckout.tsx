@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ItemCarrinho } from '../../types';
+import { enviarParaWhatsApp } from '../../utils/whatsapp'; 
 
 interface ModalCheckoutProps {
   isOpen: boolean;
@@ -283,11 +284,140 @@ const calcularTaxaPorBairro = (nomeBairro: string) => {
     return;
   }
 
-  // Verificar se atende o bairro
   if (tipoEntrega === 'delivery' && taxaEntrega === 0) {
     alert('Não atendemos este bairro. Por favor, verifique o endereço ou escolha retirada.');
     return;
   }
+
+  // ⭐⭐ CHAMAR onFinalizarPedido e PROCESSAR RESPOSTA
+  try {
+    await onFinalizarPedido({
+      nome,
+      telefone,
+      ...(tipoEntrega === 'delivery' && {
+        endereco,
+        numero,
+        complemento,
+        bairro,
+        cidade,
+        referencia,
+        taxa_entrega: taxaEntrega  // ⭐⭐ ENVIAR TAXA CORRETA
+      }),
+      observacoes,
+      formaPagamento,
+      querWhatsApp
+    }).then(handleRespostaPedido); // ⭐⭐ ADICIONE ESTA LINHA
+    
+  } catch (error) {
+    console.error('Erro ao finalizar pedido:', error);
+  }
+};
+
+  const handleConfirmarPedidoLocal = async () => {
+  // ⭐⭐ CHAMAR onFinalizarPedido e PROCESSAR RESPOSTA
+  try {
+    await onFinalizarPedido({
+      observacoes,
+      formaPagamento: 'local',
+      comanda: comandaNumero,
+      querWhatsApp: false
+    }).then(handleRespostaPedido); // ⭐⭐ ADICIONE ESTA LINHA
+    
+  } catch (error) {
+    console.error('Erro ao confirmar pedido local:', error);
+  }
+};
+
+   // Função para gerar mensagem do pedido (adicione APÓS os outros estados)
+const gerarMensagemPedido = (pedidoId: string) => {
+  let mensagem = `*NOVO PEDIDO #${pedidoId}*\n\n`;
+  mensagem += `👤 *Cliente:* ${nome || 'Consumo Local'}\n`;
+  
+  if (telefone && tipoEntrega !== 'local') {
+    mensagem += `📞 *Telefone:* ${telefone}\n`;
+  }
+  
+  mensagem += `📍 *Tipo:* ${
+    tipoEntrega === 'local' ? 'Consumo Local' : 
+    tipoEntrega === 'retirada' ? 'Retirada' : 'Delivery'
+  }\n`;
+  
+  if (tipoEntrega === 'delivery') {
+    mensagem += `🏠 *Endereço:* ${endereco}, ${numero}\n`;
+    mensagem += `🗺️ *Bairro:* ${bairro}\n`;
+    mensagem += `💰 *Taxa entrega:* R$ ${taxaEntrega.toFixed(2)}\n`;
+  }
+  
+  if (tipoEntrega === 'local' && comandaNumero) {
+    mensagem += `🏷️ *Comanda:* #${comandaNumero}\n`;
+  }
+  
+  mensagem += `\n*ITENS:*\n`;
+  itens.forEach((item) => {
+    const opcoesFormatadas = formatarOpcoesItem(item);
+    mensagem += `${item.quantidade}x ${item.produto.nome}${opcoesFormatadas} - R$ ${item.precoTotal.toFixed(2)}\n`;
+  });
+  
+  mensagem += `\n*TOTAL: R$ ${total.toFixed(2)}*\n`;
+  mensagem += `💳 *Pagamento:* ${
+    formaPagamento === 'dinheiro' ? 'Dinheiro' : 
+    formaPagamento === 'cartao' ? 'Cartão' : 'PIX'
+  }\n`;
+  
+  if (observacoes) {
+    mensagem += `📝 *Observações:* ${observacoes}\n`;
+  }
+  
+  return mensagem;
+};
+
+// Função para processar resposta e abrir WhatsApp
+const handleRespostaPedido = (resposta: any) => {
+  if (resposta.success) {
+    console.log('✅ Pedido salvo, ID:', resposta.pedido_id);
+    
+    // Gerar mensagem
+    const mensagemPedido = gerarMensagemPedido(resposta.pedido_id);
+    
+    // Pegar telefone do estabelecimento (da config)
+    const telefoneEstabelecimento = config?.telefone_whatsapp || '';
+    
+    console.log('📱 Config WhatsApp:', {
+      temTelefone: !!telefoneEstabelecimento,
+      telefone: telefoneEstabelecimento,
+      querWhatsApp: querWhatsApp
+    });
+    
+    // Verificar se deve abrir WhatsApp
+    if (querWhatsApp && telefoneEstabelecimento) {
+      console.log('🔄 Preparando para abrir WhatsApp...');
+      
+      // Pequeno delay para garantir visual feedback
+      setTimeout(() => {
+        try {
+          const resultado = enviarParaWhatsApp(
+            mensagemPedido, 
+            telefoneEstabelecimento,
+            true
+          );
+          
+          if (!resultado.sucesso) {
+            console.warn('⚠️ WhatsApp não abriu automaticamente');
+            // Opcional: mostrar link para usuário
+            if (confirm('WhatsApp não abriu automaticamente. Deseja copiar o link?')) {
+              navigator.clipboard.writeText(resultado.url);
+              alert('Link copiado! Cole no WhatsApp.');
+            }
+          }
+        } catch (error) {
+          console.error('❌ Erro ao abrir WhatsApp:', error);
+        }
+      }, 1500);
+    } else {
+      console.log('ℹ️ WhatsApp não solicitado ou telefone não configurado');
+    }
+  }
+};
 
   await onFinalizarPedido({
     nome,
