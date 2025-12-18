@@ -272,39 +272,40 @@ const calcularTaxaPorBairro = (nomeBairro: string) => {
   };
 
   // Função para finalizar pedido (retirada e delivery)
-  const handleFinalizarOutrosTipos = async () => {
-    if (!nome || !telefone) {
-      alert('Por favor, preencha seu nome e telefone.');
-      return;
-    }
+ const handleFinalizarOutrosTipos = async () => {
+  if (!nome || !telefone) {
+    alert('Por favor, preencha seu nome e telefone.');
+    return;
+  }
 
-    if (tipoEntrega === 'delivery' && (!cepValido || !endereco || !numero || !bairro || !cidade)) {
-      alert('Por favor, preencha todos os campos obrigatórios do endereço.');
-      return;
-    }
+  if (tipoEntrega === 'delivery' && (!cepValido || !endereco || !numero || !bairro || !cidade)) {
+    alert('Por favor, preencha todos os campos obrigatórios do endereço.');
+    return;
+  }
 
-    // NOVO: Verificar se atende o bairro
-    if (tipoEntrega === 'delivery' && taxaEntrega === 0) {
-      alert('Não atendemos este bairro. Por favor, verifique o endereço ou escolha retirada.');
-      return;
-    }
+  // Verificar se atende o bairro
+  if (tipoEntrega === 'delivery' && taxaEntrega === 0) {
+    alert('Não atendemos este bairro. Por favor, verifique o endereço ou escolha retirada.');
+    return;
+  }
 
-    await onFinalizarPedido({
-      nome,
-      telefone,
-      ...(tipoEntrega === 'delivery' && {
-        endereco,
-        numero,
-        complemento,
-        bairro,
-        cidade,
-        referencia
-      }),
-      observacoes,
-      formaPagamento,
-      querWhatsApp
-    });
-  };
+  await onFinalizarPedido({
+    nome,
+    telefone,
+    ...(tipoEntrega === 'delivery' && {
+      endereco,
+      numero,
+      complemento,
+      bairro,
+      cidade,
+      referencia,
+      taxa_entrega: taxaEntrega
+    }),
+    observacoes,
+    formaPagamento,
+    querWhatsApp
+  });
+};
 
   // Modal de confirmação para consumo no local
   if (mostrarModalConfirmacao && tipoEntrega === 'local') {
