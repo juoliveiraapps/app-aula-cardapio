@@ -77,29 +77,80 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
   };
 
   // NOVO: Calcular taxa e tempo por bairro
-  const calcularTaxaPorBairro = (nomeBairro: string) => {
-    if (!nomeBairro || bairrosCadastrados.length === 0) {
-      setTaxaEntrega(5);
-      setTempoEntrega('30-40 minutos');
-      return;
-    }
+ // Calcular taxa e tempo por bairro - VERSÃO CORRIGIDA
+const calcularTaxaPorBairro = (nomeBairro: string) => {
+  if (!nomeBairro || bairrosCadastrados.length === 0) {
+    console.log('Bairro vazio ou lista vazia');
+    setTaxaEntrega(5);
+    setTempoEntrega('30-40 minutos');
+    return;
+  }
+  
+  // Log para debug
+  console.log('Buscando bairro:', nomeBairro);
+  console.log('Bairros disponíveis:', bairrosCadastrados.map(b => b.Bairro));
+  
+  // Normalizar o nome do bairro para comparação
+  const normalizarTexto = (texto: string) => {
+    return texto
+      .toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Remove acentos
+      .trim()
+      .replace(/\s+/g, ' '); // Remove espaços extras
+  };
+  
+  const bairroNormalizado = normalizarTexto(nomeBairro);
+  
+  const bairroEncontrado = bairrosCadastrados.find(b => {
+    if (!b.Bairro) return false;
     
-    const bairroEncontrado = bairrosCadastrados.find(b => 
-      b.Bairro && b.Bairro.toString().toLowerCase() === nomeBairro.trim().toLowerCase() && b.ativo !== false
-    );
+    const bairroCadastradoNormalizado = normalizarTexto(b.Bairro.toString());
     
-    if (bairroEncontrado) {
-      setTaxaEntrega(parseFloat(bairroEncontrado.taxa_entrega) || 5);
+    // Verifica se é igual ou se contém (ex: "Centro" vs "Centro Histórico")
+    const matchExato = bairroCadastradoNormalizado === bairroNormalizado;
+    const matchContem = bairroCadastradoNormalizado.includes(bairroNormalizado) || 
+                       bairroNormalizado.includes(bairroCadastradoNormalizado);
+    
+    return (matchExato || matchContem) && b.ativo !== false;
+  });
+  
+  if (bairroEncontrado) {
+    console.log('✅ Bairro encontrado:', bairroEncontrado.Bairro, 'Taxa:', bairroEncontrado.taxa_entrega);
+    setTaxaEntrega(parseFloat(bairroEncontrado.taxa_entrega) || 5);
+    
+    // Formatar tempo de entrega
+    const tempoMin = parseInt(bairroEncontrado.tempo_min) || 30;
+    const tempoMax = parseInt(bairroEncontrado.tempo_max) || 40;
+    setTempoEntrega(`${tempoMin}-${tempoMax} minutos`);
+  } else {
+    console.log('❌ Bairro NÃO encontrado:', nomeBairro);
+    console.log('Tentou normalizado como:', bairroNormalizado);
+    
+    // Tentar fallback: buscar por partes do nome
+    const palavrasBairro = bairroNormalizado.split(' ');
+    const bairroFallback = bairrosCadastrados.find(b => {
+      if (!b.Bairro || b.ativo === false) return false;
+      const bairroCad = normalizarTexto(b.Bairro.toString());
       
-      // Formatar tempo de entrega
-      const tempoMin = parseInt(bairroEncontrado.tempo_min) || 30;
-      const tempoMax = parseInt(bairroEncontrado.tempo_max) || 40;
+      // Verificar se alguma palavra do bairro digitado existe no bairro cadastrado
+      return palavrasBairro.some(palavra => 
+        palavra.length > 3 && bairroCad.includes(palavra)
+      );
+    });
+    
+    if (bairroFallback) {
+      console.log('✅ Bairro encontrado por fallback:', bairroFallback.Bairro);
+      setTaxaEntrega(parseFloat(bairroFallback.taxa_entrega) || 5);
+      const tempoMin = parseInt(bairroFallback.tempo_min) || 30;
+      const tempoMax = parseInt(bairroFallback.tempo_max) || 40;
       setTempoEntrega(`${tempoMin}-${tempoMax} minutos`);
     } else {
+      // Não encontrado mesmo com fallback
       setTaxaEntrega(0);
       setTempoEntrega('Não atendemos este bairro');
     }
-  };
+  }
+};
 
   // NOVO: Buscar bairros quando abrir modal
   useEffect(() => {
