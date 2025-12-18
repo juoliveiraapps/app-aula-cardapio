@@ -1,6 +1,6 @@
 // src/components/admin/ImageUploader.tsx
 import React, { useState, useRef } from 'react';
-import { Upload, X, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { Upload, X, Image as ImageIcon, Loader2, AlertCircle } from 'lucide-react';
 
 interface ImageUploaderProps {
   onImageUploaded: (url: string) => void;
@@ -18,32 +18,31 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
   const [cloudinaryConfigured, setCloudinaryConfigured] = useState<boolean | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Verificar se o Cloudinary está configurado ao montar o componente
-  React.useEffect(() => {
-    const checkCloudinaryConfig = async () => {
-      try {
-        const response = await fetch('/api?action=uploadImage', {
-          method: 'POST',
-          body: JSON.stringify({ checkConfig: true })
-        });
 
-        if (response.status === 500) {
-          const data = await response.json();
-          if (data.error === 'Cloudinary não configurado') {
-            setCloudinaryConfigured(false);
-            return;
-          }
-        }
-
-        setCloudinaryConfigured(true);
-      } catch (error) {
-        console.error('Erro ao verificar configuração do Cloudinary:', error);
-        setCloudinaryConfigured(false);
-      }
-    };
-
-    checkCloudinaryConfig();
-  }, []);
+// Verificar se o Cloudinary está configurado ao montar o componente
+React.useEffect(() => {
+  // Verificação LOCAL, não chama a API de upload
+  const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+  const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+  
+  console.log('🔍 Verificando configuração local do Cloudinary:', {
+    temCloudName: !!cloudName,
+    temUploadPreset: !!uploadPreset
+  });
+  
+  // NOTA: No front-end só conseguimos verificar se as variáveis EXISTEM,
+  // não se seus valores são válidos. A validação real acontece no servidor.
+  if (cloudName && uploadPreset) {
+    console.log('✅ Variáveis de ambiente do Cloudinary encontradas no front-end.');
+    setCloudinaryConfigured(true);
+  } else {
+    console.warn('⚠️ Variáveis do Cloudinary (VITE_CLOUDINARY_*) não encontradas.');
+    // Definimos como null (em vez de false) para não mostrar
+    // o alerta amarelo imediatamente. A tentativa de upload
+    // testará a configuração real.
+    setCloudinaryConfigured(null);
+  }
+}, []);
 
   const handleFileSelect = () => {
     if (disabled) return;
