@@ -1,19 +1,16 @@
 export const saveProductToSheet = async (productData: any) => {
   try {
     console.log('📤 Enviando produto para API:', productData);
-    
-   
+
+    // 🔧 CORREÇÃO: Converter o preço corretamente
     const dataToSend = {
       ...productData,
-      
-      ...(productData.id && { produto_id: productData.id }),
-      // Remover o campo "id" antigo se existir
-      id: undefined
+      // Converter preço de string para número, tratando vírgula como decimal
+      preco: typeof productData.preco === 'string' 
+        ? parseFloat(productData.preco.replace(',', '.'))
+        : productData.preco
     };
-    
-    // Opcional: remover o campo id do objeto
-    delete dataToSend.id;
-    
+
     console.log('📤 Dados processados para envio:', dataToSend);
 
     const response = await fetch('/api?action=saveProduct', {
@@ -21,7 +18,7 @@ export const saveProductToSheet = async (productData: any) => {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(dataToSend), // ⬅️ Enviar o objeto corrigido
+      body: JSON.stringify(dataToSend),
     });
 
     if (!response.ok) {
@@ -38,7 +35,6 @@ export const saveProductToSheet = async (productData: any) => {
     throw error;
   }
 };
-
 export const deleteProductFromSheet = async (id: string) => {
   try {
     console.log('🗑️ Solicitando exclusão do produto:', id);
