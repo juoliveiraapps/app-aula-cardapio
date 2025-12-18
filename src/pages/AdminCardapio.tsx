@@ -1,16 +1,11 @@
+// src/pages/AdminCardapio.tsx
 import React, { useState } from 'react';
-import { Plus, RefreshCw, Check, X, AlertCircle, Tag } from 'lucide-react';
+import { Plus, RefreshCw, Check, X, AlertCircle } from 'lucide-react';
 import { useCardapioData } from '../hooks/useCardapioData';
 import { Produto } from '../types';
 import ProductFormMinimal from '../components/admin/ProductFormMinimal';
-import CategoryForm from '../components/admin/CategoryForm';
 import ProductList from '../components/admin/ProductList';
-import { 
-  saveProductToSheet, 
-  deleteProductFromSheet, 
-  saveCategoryToSheet, 
-  deleteCategoryFromSheet 
-} from '../services/adminService';
+import { saveProductToSheet, deleteProductFromSheet } from '../services/adminService';
 
 // Componente Toast para mensagens rápidas
 const Toast = ({ message, type, onClose }: { 
@@ -62,24 +57,6 @@ const Toast = ({ message, type, onClose }: {
   );
 };
 
-// Estilos CSS para animação do Toast
-const toastStyles = `
-@keyframes slide-in {
-  from {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
-.animate-slide-in {
-  animation: slide-in 0.3s ease-out forwards;
-}
-`;
-
 const AdminCardapio = () => {
   const { produtos: produtosData, categorias: categoriasRaw, loading, error, refetch } = useCardapioData();
   
@@ -90,16 +67,14 @@ const AdminCardapio = () => {
     visible: boolean;
   } | null>(null);
 
-  // Estados para modais
-  const [showProductForm, setShowProductForm] = useState(false);
-  const [showCategoryForm, setShowCategoryForm] = useState(false);
+  // Estados para modal
+  const [showForm, setShowForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Produto | null>(null);
-  const [editingCategory, setEditingCategory] = useState<any>(null);
   const [processing, setProcessing] = useState(false);
 
-  // 🔧 TRANSFORMAÇÃO DAS CATEGORIAS
+  // 🔧 TRANSFORMAÇÃO DAS CATEGORIAS (apenas para select do formulário)
   const categorias = categoriasRaw.map(cat => ({
-    id: cat.id || cat.categoria_id || '',
+    id: cat.categoria_id || cat.id || '',
     categoria_id: cat.categoria_id || cat.id || '',
     nome: cat.nome || '',
     descricao: cat.descricao || '',
@@ -108,8 +83,6 @@ const AdminCardapio = () => {
     icone_svg: cat.icone_svg || ''
   }));
 
-  console.log('🔍 Categorias transformadas:', categorias);
-  
   // Converter produtos para o formato do ProductList
   const produtos = produtosData.map(prod => {
     const cat = categorias.find(c => c.id === prod.categoria_id || c.categoria_id === prod.categoria_id);
@@ -139,44 +112,50 @@ const AdminCardapio = () => {
     setToast(null);
   };
 
-  // ========== FUNÇÕES PARA PRODUTOS ==========
-
   const handleSaveProduct = async (productData: any): Promise<boolean> => {
     console.log('📝 Iniciando salvamento do produto:', productData);
     
     try {
       setProcessing(true);
       
-      // Preparar os dados para envio
+      // Preparar os dados para envio (CRÍTICO)
       const dataToSend = {
         ...productData,
+        // Converter preço corretamente
         preco: typeof productData.preco === 'string' 
           ? parseFloat(productData.preco.replace(',', '.')) 
           : productData.preco,
+        // Converter disponível para string
         disponivel: productData.disponivel ? 'TRUE' : 'FALSE',
-        ...(productData.id && { produto_id: productData.id })
+        // ⚠️ IMPORTANTE: Usar produto_id se disponível
+        ...(productData.produto_id && { produto_id: productData.produto_id }),
+        ...(productData.id && !productData.produto_id && { produto_id: productData.id })
       };
       
+      // Remover campo id antigo se existir
       if (dataToSend.id) {
         delete dataToSend.id;
       }
       
-      console.log('📤 Enviando produto para API:', dataToSend);
+      console.log('📤 Enviando dados para API:', dataToSend);
       
       const response = await saveProductToSheet(dataToSend);
       
       console.log('✅ Resposta do salvamento:', response);
       
       if (response.success) {
-        const isEdit = !!productData.id || !!productData.produto_id;
+        const isEdit = !!productData.produto_id || !!productData.id;
         const message = isEdit 
           ? '✅ Produto atualizado com sucesso!' 
           : '✅ Produto cadastrado com sucesso!';
         
         showToast(message, 'success');
-        setShowProductForm(false);
+        
+        // Fechar o modal
+        setShowForm(false);
         setEditingProduct(null);
         
+        // Recarregar os dados
         if (refetch) {
           await refetch();
         }
@@ -211,6 +190,7 @@ const AdminCardapio = () => {
       if (response.success) {
         showToast('✅ Produto deletado com sucesso!', 'success');
         
+        // Recarregar os dados
         if (refetch) {
           await refetch();
         }
@@ -226,109 +206,16 @@ const AdminCardapio = () => {
     }
   };
 
-  // ========== FUNÇÕES PARA CATEGORIAS ==========
-
-  const handleSaveCategory = async (categoryData: any): Promise<boolean> => {
-    console.log('📝 Salvando categoria:', categoryData);
-    
-    try {
-      setProcessing(true);
-      
-      // Preparar os dados para envio
-      const dataToSend = {
-        ...categoryData,
-        visivel: categoryData.visivel ? 'TRUE' : 'FALSE',
-      };
-      
-      console.log('📤 Enviando dados da categoria:', dataToSend);
-      
-      const response = await saveCategoryToSheet(dataToSend);
-      
-      console.log('✅ Resposta do salvamento da categoria:', response);
-      
-      if (response.success) {
-        const isEdit = !!categoryData.id;
-        const message = isEdit 
-          ? '✅ Categoria atualizada com sucesso!' 
-          : '✅ Categoria cadastrada com sucesso!';
-        
-        showToast(message, 'success');
-        setShowCategoryForm(false);
-        setEditingCategory(null);
-        
-        if (refetch) {
-          await refetch();
-        }
-        
-        return true;
-      } else {
-        throw new Error(response.message || 'Erro ao salvar categoria');
-      }
-      
-    } catch (err: any) {
-      console.error('❌ Erro ao salvar categoria:', err);
-      showToast(`❌ Erro: ${err.message || 'Erro ao salvar categoria'}`, 'error');
-      return false;
-    } finally {
-      setProcessing(false);
-    }
-  };
-
-  const handleDeleteCategory = async (id: string): Promise<void> => {
-    if (!window.confirm('Tem certeza que deseja excluir esta categoria?')) {
-      return;
-    }
-
-    try {
-      setProcessing(true);
-      console.log('🗑️ Deletando categoria ID:', id);
-      
-      const response = await deleteCategoryFromSheet(id);
-      
-      console.log('✅ Resposta da exclusão da categoria:', response);
-      
-      if (response.success) {
-        showToast('✅ Categoria deletada com sucesso!', 'success');
-        
-        if (refetch) {
-          await refetch();
-        }
-      } else {
-        throw new Error(response.message || 'Erro ao deletar categoria');
-      }
-      
-    } catch (err: any) {
-      console.error('❌ Erro ao deletar categoria:', err);
-      showToast(`❌ Erro: ${err.message || 'Erro ao deletar categoria'}`, 'error');
-    } finally {
-      setProcessing(false);
-    }
-  };
-
-  // ========== FUNÇÕES AUXILIARES ==========
-
   const handleNewProduct = () => {
     console.log('🆕 Abrindo modal de novo produto');
     setEditingProduct(null);
-    setShowProductForm(true);
+    setShowForm(true);
   };
 
   const handleEditProduct = (product: any) => {
     console.log('✏️ Editando produto:', product);
     setEditingProduct(product);
-    setShowProductForm(true);
-  };
-
-  const handleNewCategory = () => {
-    console.log('🆕 Abrindo modal de nova categoria');
-    setEditingCategory(null);
-    setShowCategoryForm(true);
-  };
-
-  const handleEditCategory = (category: any) => {
-    console.log('✏️ Editando categoria:', category);
-    setEditingCategory(category);
-    setShowCategoryForm(true);
+    setShowForm(true);
   };
 
   const refreshProducts = async () => {
@@ -342,58 +229,88 @@ const AdminCardapio = () => {
     }
   };
 
-  // ========== RENDERIZAÇÃO ==========
-
   return (
     <>
       {/* Estilos do Toast */}
-      <style>{toastStyles}</style>
+      <style>{`
+        @keyframes slide-in {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+        .animate-slide-in {
+          animation: slide-in 0.3s ease-out forwards;
+        }
+      `}</style>
       
       {/* Conteúdo principal da página */}
       <div className="space-y-6">
-        
         {/* Cabeçalho */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-white">Administração do Cardápio</h1>
-            <p className="text-gray-400">
-              Gerencie seus produtos e categorias
-              {error && ` • Erro: ${error}`}
-            </p>
+            <h3 className="text-2xl font-bold text-white">Produtos do Cardápio</h3>
+            <div className="flex items-center space-x-4 text-gray-400 mt-1">
+              <span>{produtos.length} produtos cadastrados</span>
+              <span>{produtos.filter(p => p.disponivel).length} disponíveis</span>
+              {categorias.length > 0 && (
+                <span>{categorias.length} categorias disponíveis</span>
+              )}
+              {error && <span className="text-red-400">• Erro: {error}</span>}
+            </div>
           </div>
           
           <div className="flex items-center space-x-2">
             <button
               onClick={refreshProducts}
               disabled={loading || processing}
-              className="flex items-center space-x-2 px-3 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors disabled:opacity-50"
+              className="flex items-center space-x-2 px-4 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors disabled:opacity-50"
               title="Atualizar lista"
             >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline">Atualizar</span>
-            </button>
-            
-            <button
-              onClick={handleNewCategory}
-              disabled={processing}
-              className="flex items-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-bold rounded-lg transition-all duration-300 disabled:opacity-50"
-              title="Adicionar nova categoria"
-            >
-              <Tag className="w-4 h-4" />
-              <span>Nova Categoria</span>
+              <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+              <span className="font-medium">Atualizar</span>
             </button>
             
             <button
               onClick={handleNewProduct}
               disabled={processing || categorias.length === 0}
-              className="flex items-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-[#e58840] to-[#e58840]/90 hover:from-[#e58840]/90 hover:to-[#e58840] text-[#400b0b] font-bold rounded-lg transition-all duration-300 disabled:opacity-50"
+              className="flex items-center space-x-2 px-5 py-2.5 bg-gradient-to-r from-[#e58840] to-[#e58840]/90 hover:from-[#e58840]/90 hover:to-[#e58840] text-[#400b0b] font-bold rounded-lg transition-all duration-300 disabled:opacity-50 shadow-lg hover:shadow-[#e58840]/20"
               title={categorias.length === 0 ? 'Crie categorias primeiro' : 'Adicionar novo produto'}
             >
-              <Plus className="w-4 h-4" />
-              <span>Novo Produto</span>
+              <Plus className="w-5 h-5" />
+              <span className="font-bold">Novo Produto</span>
             </button>
           </div>
         </div>
+
+        {/* Aviso se não houver categorias */}
+        {categorias.length === 0 && (
+          <div className="bg-yellow-900/30 border border-yellow-800/50 rounded-xl p-6">
+            <div className="flex items-center space-x-4">
+              <span className="text-yellow-400 text-2xl">⚠️</span>
+              <div>
+                <h3 className="text-yellow-400 font-bold text-lg">Crie categorias primeiro</h3>
+                <p className="text-yellow-300/80">
+                  Você precisa criar pelo menos uma categoria antes de adicionar produtos.
+                  Acesse a página de <strong>Categorias</strong> para criar suas primeiras categorias.
+                </p>
+                <div className="mt-3">
+                  <a 
+                    href="/admin/categorias" 
+                    className="inline-flex items-center space-x-2 px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white font-medium rounded-lg transition-colors"
+                  >
+                    <span>Ir para Categorias</span>
+                    <span>→</span>
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Mensagem de erro */}
         {error && (
@@ -405,7 +322,7 @@ const AdminCardapio = () => {
               </div>
               <button
                 onClick={refreshProducts}
-                className="text-red-300 hover:text-white text-sm"
+                className="text-red-300 hover:text-white text-sm font-medium"
                 disabled={loading}
               >
                 Tentar novamente
@@ -413,137 +330,6 @@ const AdminCardapio = () => {
             </div>
           </div>
         )}
-
-        {/* Aviso se não houver categorias */}
-        {categorias.length === 0 && (
-          <div className="bg-yellow-900/30 border border-yellow-800/50 rounded-lg p-6">
-            <div className="flex items-center space-x-4">
-              <span className="text-yellow-400 text-2xl">⚠️</span>
-              <div>
-                <h3 className="text-yellow-400 font-bold text-lg">Crie sua primeira categoria</h3>
-                <p className="text-yellow-300/80">
-                  Você precisa criar pelo menos uma categoria antes de adicionar produtos.
-                  Clique em "Nova Categoria" para começar.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Seção de Categorias */}
-        <div className="bg-gray-900/30 rounded-xl border border-gray-700/50 p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h3 className="text-lg font-bold text-white">Categorias do Cardápio</h3>
-              <p className="text-gray-400">
-                {categorias.length} categorias cadastradas • 
-                {categorias.filter(c => c.visivel).length} visíveis no cardápio
-              </p>
-            </div>
-            <button
-              onClick={handleNewCategory}
-              disabled={processing}
-              className="flex items-center space-x-2 px-4 py-2.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 border border-purple-500/30 rounded-lg transition-colors disabled:opacity-50"
-              title="Adicionar nova categoria"
-            >
-              <Tag className="w-4 h-4" />
-              <span>Adicionar</span>
-            </button>
-          </div>
-          
-          {categorias.length === 0 ? (
-            <div className="text-center py-8">
-              <div className="w-16 h-16 bg-gray-800/50 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Tag className="w-8 h-8 text-gray-500" />
-              </div>
-              <p className="text-gray-400 mb-2">Nenhuma categoria cadastrada</p>
-              <p className="text-sm text-gray-500">Crie sua primeira categoria para começar</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {categorias.map(categoria => (
-                <div 
-                  key={categoria.id} 
-                  className="bg-gray-800/30 border border-gray-700/50 rounded-xl p-4 hover:bg-gray-800/50 transition-colors group"
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-12 h-12 bg-gray-900 rounded-xl flex items-center justify-center border border-gray-700 group-hover:border-[#e58840]/30 transition-colors">
-                        <svg
-                          width={24}
-                          height={24}
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="text-[#e58840]"
-                        >
-                          {categoria.icone_svg?.split(/(?=[A-Z])/)
-                            .filter(cmd => cmd.trim())
-                            .map((command, index) => (
-                              <path key={index} d={command.trim()} />
-                            ))}
-                        </svg>
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-white group-hover:text-[#e58840] transition-colors">
-                          {categoria.nome}
-                        </h4>
-                        <div className="flex items-center space-x-2 mt-1">
-                          <span className="text-xs px-2 py-0.5 bg-gray-900/50 rounded-full text-gray-400">
-                            Posição {categoria.posicao}
-                          </span>
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${
-                            categoria.visivel 
-                              ? 'bg-green-900/30 text-green-400' 
-                              : 'bg-gray-900/50 text-gray-400'
-                          }`}>
-                            {categoria.visivel ? 'Visível' : 'Oculta'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={() => handleEditCategory(categoria)}
-                        className="p-1.5 bg-gray-700 hover:bg-yellow-600 text-gray-300 hover:text-white rounded-lg transition-colors"
-                        title="Editar categoria"
-                      >
-                        ✏️
-                      </button>
-                      <button
-                        onClick={() => handleDeleteCategory(categoria.id)}
-                        className="p-1.5 bg-gray-700 hover:bg-red-600 text-gray-300 hover:text-white rounded-lg transition-colors"
-                        title="Excluir categoria"
-                      >
-                        🗑️
-                      </button>
-                    </div>
-                  </div>
-                  
-                  {categoria.descricao && (
-                    <p className="text-sm text-gray-400 mt-3 line-clamp-2">
-                      {categoria.descricao}
-                    </p>
-                  )}
-                  
-                  <div className="mt-4 pt-4 border-t border-gray-700/30">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-500 font-mono">
-                        ID: {categoria.id}
-                      </span>
-                      <span className="text-xs text-gray-400">
-                        {produtos.filter(p => p.categoria_id === categoria.id).length} produtos
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
 
         {/* Lista de Produtos */}
         <ProductList
@@ -554,36 +340,22 @@ const AdminCardapio = () => {
           loading={loading && produtos.length === 0}
           emptyMessage={
             categorias.length === 0 
-              ? "Crie categorias primeiro para adicionar produtos"
+              ? "Acesse a página de Categorias para criar categorias primeiro"
               : "Nenhum produto cadastrado. Comece criando seu primeiro produto!"
           }
         />
       </div>
 
       {/* Modal de Produto */}
-      {showProductForm && (
+      {showForm && (
         <ProductFormMinimal
           key={editingProduct?.id || 'new'}
           initialData={editingProduct || undefined}
           categorias={categorias}
           onSubmit={handleSaveProduct}
           onClose={() => {
-            setShowProductForm(false);
+            setShowForm(false);
             setEditingProduct(null);
-          }}
-          loading={processing}
-        />
-      )}
-
-      {/* Modal de Categoria */}
-      {showCategoryForm && (
-        <CategoryForm
-          key={editingCategory?.id || 'new'}
-          initialData={editingCategory || undefined}
-          onSubmit={handleSaveCategory}
-          onClose={() => {
-            setShowCategoryForm(false);
-            setEditingCategory(null);
           }}
           loading={processing}
         />
