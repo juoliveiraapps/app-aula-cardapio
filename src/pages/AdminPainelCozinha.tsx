@@ -1,4 +1,4 @@
-// src/pages/PainelCozinha.tsx - VERSÃO COM STATUS FUNCIONAL
+// src/pages/AdminPainelCozinha.tsx - VERSÃO CORRIGIDA
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
@@ -9,12 +9,10 @@ const AdminPainelCozinha: React.FC = () => {
   const [ultimaAtualizacao, setUltimaAtualizacao] = useState<string>('');
   const [notificacaoAtiva, setNotificacaoAtiva] = useState(false);
   const [ultimoPedidoId, setUltimoPedidoId] = useState<string>('');
-  const [pedidoProcessando, setPedidoProcessando] = useState<string | null>(null);
+  const [statusLoading, setStatusLoading] = useState<{[key: string]: boolean}>({});
 
-  // Construir URL da API - compatível com .env.local
+  // Construir URL da API
   const getApiUrl = (action: string) => {
-    // Desenvolvimento: usa proxy local
-    // Produção: usa variáveis de ambiente
     const isDev = window.location.hostname === 'localhost' || 
                   window.location.hostname === '127.0.0.1';
     
@@ -22,23 +20,20 @@ const AdminPainelCozinha: React.FC = () => {
       return `/api?action=${action}`;
     }
     
-    // Usar variáveis de ambiente (Vite)
     const apiKey = import.meta.env.VITE_API_KEY || '';
     const scriptUrl = import.meta.env.VITE_GOOGLE_SCRIPT_URL || '';
     
     if (!apiKey || !scriptUrl) {
-      console.error('Variáveis de ambiente VITE_API_KEY ou VITE_GOOGLE_SCRIPT_URL não configuradas');
-      return `/api?action=${action}`; // Fallback para proxy
+      return `/api?action=${action}`;
     }
     
     return `${scriptUrl}?action=${action}&key=${apiKey}`;
   };
 
-  // Buscar pedidos - VERSÃO SIMPLIFICADA
+  // Buscar pedidos - VERSÃO CORRIGIDA
   const buscarPedidos = async () => {
     try {
       setLoading(true);
-      
       const url = getApiUrl('getPedidos');
       console.log('🔗 Buscando pedidos de:', url);
       
@@ -49,10 +44,27 @@ const AdminPainelCozinha: React.FC = () => {
       }
       
       const data = await response.json();
-      console.log('📊 Pedidos recebidos:', data.pedidos?.length || 0);
+      console.log('📊 Pedidos recebidos:', data);
       
-      if (data.success && Array.isArray(data.pedidos)) {
-        const pedidosOrdenados = [...data.pedidos].sort((a, b) => {
+      // ⭐⭐ CORREÇÃO: Aceita array direto OU objeto com 'pedidos'
+      let listaDePedidos = [];
+      
+      if (Array.isArray(data)) {
+        // Formato novo: array direto
+        listaDePedidos = data;
+      } else if (data && Array.isArray(data.pedidos)) {
+        // Formato antigo: { pedidos: [...] }
+        listaDePedidos = data.pedidos;
+      } else {
+        console.warn('Formato não reconhecido:', data);
+        listaDePedidos = [];
+      }
+      
+      console.log(`✅ ${listaDePedidos.length} pedidos carregados`);
+      
+      if (listaDePedidos.length > 0) {
+        // Ordenar do mais recente para o mais antigo
+        const pedidosOrdenados = [...listaDePedidos].sort((a, b) => {
           const timeA = new Date(a.timestamp || 0).getTime();
           const timeB = new Date(b.timestamp || 0).getTime();
           return timeB - timeA;
@@ -84,32 +96,36 @@ const AdminPainelCozinha: React.FC = () => {
         }
         
         setPedidos(pedidosOrdenados);
-        
-        setUltimaAtualizacao(new Date().toLocaleTimeString('pt-BR', {
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit'
-        }));
+      } else {
+        setPedidos([]);
       }
+      
+      setUltimaAtualizacao(new Date().toLocaleTimeString('pt-BR', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      }));
+      
     } catch (error) {
       console.error('❌ Erro ao buscar pedidos:', error);
+      alert('Erro ao carregar pedidos. Verifique o console.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Atualizar status - VERSÃO CORRIGIDA
+  // ⭐⭐ ATUALIZAR STATUS COM LOADING POR BOTÃO
   const atualizarStatus = async (pedidoId: string, novoStatus: string) => {
     try {
       console.log('📝 Atualizando status:', pedidoId, '->', novoStatus);
       
-      setPedidoProcessando(pedidoId);
+      // Ativar loading para este botão específico
+      setStatusLoading(prev => ({ ...prev, [pedidoId]: true }));
       setNotificacaoAtiva(false);
       
       const url = getApiUrl('atualizarStatus');
       console.log('🔗 URL de atualização:', url);
       
-      // Método correto para Google Apps Script
       const response = await fetch(url, {
         method: 'POST',
         headers: {
@@ -124,24 +140,34 @@ const AdminPainelCozinha: React.FC = () => {
       console.log('📊 Resposta da atualização:', response.status);
       
       if (response.ok) {
-        console.log('✅ Status atualizado com sucesso');
+        const result = await response.json();
+        console.log('✅ Status atualizado com sucesso:', result);
         
-        // Atualizar o pedido localmente (otimização)
-        setPedidos(prevPedidos => 
-          prevPedidos.map(pedido => 
-            pedido.pedido_id === pedidoId 
-              ? { ...pedido, status: novoStatus, atualizado_em: new Date().toISOString() }
-              : pedido
-          )
-        );
-        
-        // Também buscar novamente após um delay
-        setTimeout(() => buscarPedidos(), 500);
+        if (result.success) {
+          // Atualizar localmente imediatamente (melhor UX)
+          setPedidos(prevPedidos => 
+            prevPedidos.map(pedido => 
+              pedido.pedido_id === pedidoId 
+                ? { 
+                    ...pedido, 
+                    status: novoStatus, 
+                    atualizado_em: new Date().toISOString() 
+                  }
+                : pedido
+            )
+          );
+          
+          // Buscar dados atualizados após 1 segundo
+          setTimeout(() => {
+            buscarPedidos();
+          }, 1000);
+        } else {
+          alert(`Erro: ${result.error || 'Não foi possível atualizar o status'}`);
+        }
       } else {
         const errorText = await response.text();
         console.error('❌ Erro na resposta:', errorText);
         
-        // Tentar parsear como JSON
         try {
           const errorData = JSON.parse(errorText);
           alert(`Erro: ${errorData.error || errorData.message || 'Erro desconhecido'}`);
@@ -149,23 +175,21 @@ const AdminPainelCozinha: React.FC = () => {
           alert('Erro ao atualizar status. Tente novamente.');
         }
       }
+      
     } catch (error) {
       console.error('❌ Erro na requisição:', error);
       alert('Erro de conexão. Verifique sua internet.');
     } finally {
-      setPedidoProcessando(null);
+      // Desativar loading para este botão
+      setStatusLoading(prev => ({ ...prev, [pedidoId]: false }));
     }
   };
 
   // Atualização automática
   useEffect(() => {
     buscarPedidos();
-    
     const intervalId = setInterval(buscarPedidos, 10000);
-    
-    return () => {
-      clearInterval(intervalId);
-    };
+    return () => clearInterval(intervalId);
   }, []);
 
   // Filtrar pedidos
@@ -263,7 +287,7 @@ const AdminPainelCozinha: React.FC = () => {
     }
   };
 
-  // Loading
+  // Loading inicial
   if (loading && pedidos.length === 0) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
@@ -312,9 +336,16 @@ const AdminPainelCozinha: React.FC = () => {
           <button
             onClick={buscarPedidos}
             disabled={loading}
-            className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
+            className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
           >
-            Atualizar
+            {loading ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                Atualizando...
+              </>
+            ) : (
+              'Atualizar'
+            )}
           </button>
         </div>
       </header>
@@ -355,7 +386,7 @@ const AdminPainelCozinha: React.FC = () => {
             const statusCor = getStatusClass(pedido.status || 'Recebido');
             const totalPedido = parseFloat(pedido.total) || 0;
             const pedidoId = pedido.pedido_id || pedido.id || `PED${index}`;
-            const estaProcessando = pedidoProcessando === pedidoId;
+            const estaProcessando = statusLoading[pedidoId] || false;
             const itensArray = Array.isArray(pedido.itens) ? pedido.itens : [];
             const totalItens = itensArray.reduce((total, item) => 
               total + (parseInt(item.quantidade) || 1), 0);
@@ -420,13 +451,20 @@ const AdminPainelCozinha: React.FC = () => {
                         <button
                           onClick={() => atualizarStatus(pedidoId, 'Preparando')}
                           disabled={estaProcessando}
-                          className={`px-3 py-2 rounded-lg text-sm transition-colors min-w-[90px] ${
+                          className={`px-3 py-2 rounded-lg text-sm transition-colors min-w-[90px] flex items-center justify-center gap-2 ${
                             estaProcessando
                               ? 'bg-orange-700 cursor-not-allowed'
                               : 'bg-orange-600 hover:bg-orange-700'
                           }`}
                         >
-                          {estaProcessando ? 'Processando...' : 'Preparar'}
+                          {estaProcessando ? (
+                            <>
+                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                              Salvando...
+                            </>
+                          ) : (
+                            'Preparar'
+                          )}
                         </button>
                       )}
                       
@@ -434,13 +472,20 @@ const AdminPainelCozinha: React.FC = () => {
                         <button
                           onClick={() => atualizarStatus(pedidoId, 'Pronto')}
                           disabled={estaProcessando}
-                          className={`px-3 py-2 rounded-lg text-sm transition-colors min-w-[90px] ${
+                          className={`px-3 py-2 rounded-lg text-sm transition-colors min-w-[90px] flex items-center justify-center gap-2 ${
                             estaProcessando
                               ? 'bg-teal-700 cursor-not-allowed'
                               : 'bg-teal-600 hover:bg-teal-700'
                           }`}
                         >
-                          {estaProcessando ? 'Processando...' : 'Pronto'}
+                          {estaProcessando ? (
+                            <>
+                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                              Salvando...
+                            </>
+                          ) : (
+                            'Pronto'
+                          )}
                         </button>
                       )}
                       
@@ -448,13 +493,20 @@ const AdminPainelCozinha: React.FC = () => {
                         <button
                           onClick={() => atualizarStatus(pedidoId, 'Entregue')}
                           disabled={estaProcessando}
-                          className={`px-3 py-2 rounded-lg text-sm transition-colors min-w-[90px] ${
+                          className={`px-3 py-2 rounded-lg text-sm transition-colors min-w-[90px] flex items-center justify-center gap-2 ${
                             estaProcessando
                               ? 'bg-gray-700 cursor-not-allowed'
                               : 'bg-gray-600 hover:bg-gray-700'
                           }`}
                         >
-                          {estaProcessando ? 'Processando...' : 'Entregue'}
+                          {estaProcessando ? (
+                            <>
+                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                              Salvando...
+                            </>
+                          ) : (
+                            'Entregue'
+                          )}
                         </button>
                       )}
                     </div>
@@ -494,4 +546,3 @@ const AdminPainelCozinha: React.FC = () => {
 };
 
 export default AdminPainelCozinha;
-
