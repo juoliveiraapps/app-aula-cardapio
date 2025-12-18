@@ -20,28 +20,21 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
 
 
 // Verificar se o Cloudinary está configurado ao montar o componente
+// No ImageUploader.tsx - Substitua o useEffect atual por este:
 React.useEffect(() => {
-  // Verificação LOCAL, não chama a API de upload
+  // Verificação apenas para logs/debug
   const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
   const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
   
-  console.log('🔍 Verificando configuração local do Cloudinary:', {
-    temCloudName: !!cloudName,
-    temUploadPreset: !!uploadPreset
+  console.log('🔍 Variáveis do Cloudinary no front-end:', {
+    temVITE_CLOUDINARY_CLOUD_NAME: !!cloudName,
+    temVITE_CLOUDINARY_UPLOAD_PRESET: !!uploadPreset
   });
   
-  // NOTA: No front-end só conseguimos verificar se as variáveis EXISTEM,
-  // não se seus valores são válidos. A validação real acontece no servidor.
-  if (cloudName && uploadPreset) {
-    console.log('✅ Variáveis de ambiente do Cloudinary encontradas no front-end.');
-    setCloudinaryConfigured(true);
-  } else {
-    console.warn('⚠️ Variáveis do Cloudinary (VITE_CLOUDINARY_*) não encontradas.');
-    // Definimos como null (em vez de false) para não mostrar
-    // o alerta amarelo imediatamente. A tentativa de upload
-    // testará a configuração real.
-    setCloudinaryConfigured(null);
-  }
+  // ⭐⭐ NÃO defina cloudinaryConfigured como false aqui!
+  // Deixe como null ou true, mas nunca false para não mostrar
+  // o alerta amarelo. O teste real acontece ao tentar fazer upload.
+  setCloudinaryConfigured(null); // ou remova este estado completamente
 }, []);
 
   const handleFileSelect = () => {
