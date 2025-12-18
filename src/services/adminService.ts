@@ -61,3 +61,58 @@ export const deleteProductFromSheet = async (id: string) => {
     throw error;
   }
 };
+
+// Funções para categorias
+export const saveCategoryToSheet = async (categoryData: any) => {
+  try {
+    console.log('📤 Enviando categoria para API:', categoryData);
+
+    const response = await fetch('/api?action=salvarCategoria', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(categoryData),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+
+    const data = await response.json();
+    console.log('✅ Resposta da API (categoria):', data);
+    return data;
+
+  } catch (error) {
+    console.error('❌ Erro na função saveCategoryToSheet:', error);
+    throw error;
+  }
+};
+
+export const deleteCategoryFromSheet = async (id: string) => {
+  try {
+    console.log('🗑️ Solicitando exclusão da categoria:', id);
+
+    const response = await fetch('/api?action=deletarCategoria', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ id }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+
+    const data = await response.json();
+    console.log('✅ Resposta da exclusão (categoria):', data);
+    return data;
+
+  } catch (error) {
+    console.error('❌ Erro na função deleteCategoryFromSheet:', error);
+    throw error;
+  }
+};
