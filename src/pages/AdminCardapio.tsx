@@ -28,22 +28,22 @@ const AdminCardapio = () => {
 
   // Converter produtos para o formato do ProductList
   const produtos = produtosData.map(prod => {
-    // Usar as categorias transformadas
-    const cat = categorias.find(c => c.id === prod.categoria_id);
-    
-    return {
-      id: prod.id || '',
-      nome: prod.nome || '',
-      descricao: prod.descricao || '',
-      preco: prod.preco || 0,
-      imagem_url: prod.imagem_url || '',
-      categoria_id: prod.categoria_id || '',
-      categoria_nome: cat?.nome || '',
-      disponivel: prod.disponivel !== false,
-      posicao: prod.posicao || 1,
-      opcoes: prod.opcoes || []
-    };
-  });
+  const cat = categorias.find(c => c.id === prod.categoria_id);
+  
+  return {
+    id: prod.produto_id || '',           // ⬅️ CORREÇÃO: usar produto_id
+    produto_id: prod.produto_id || '',   // ⬅️ MANTER também o produto_id
+    nome: prod.nome || '',
+    descricao: prod.descricao || '',
+    preco: prod.preco || 0,
+    imagem_url: prod.imagem_url || '',
+    categoria_id: prod.categoria_id || '',
+    categoria_nome: cat?.nome || '',
+    disponivel: prod.disponivel !== false,
+    posicao: prod.posicao || 1,
+    opcoes: prod.opcoes || []
+  };
+});
 
   const handleSaveProduct = async (productData: any): Promise<boolean> => {
     console.log('📝 Iniciando salvamento do produto:', productData);
