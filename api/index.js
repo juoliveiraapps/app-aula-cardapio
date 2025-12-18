@@ -155,21 +155,24 @@ if (req.method === 'GET') {
       console.log(`[POST] Ação: ${action}, Body:`, req.body);
 
       // 🖼️ UPLOAD DE IMAGEM PARA CLOUDINARY
-     // 🔵 ROTA POST - UPLOAD DE IMAGEM (VERCEL) - CORRIGIDA
+   // 🔵 ROTA POST - UPLOAD DE IMAGEM (CORREÇÃO PARA VERCEL)
 if (action === 'uploadImage') {
+  console.log('[UPLOAD] Iniciando upload...');
+  
   const CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME || '';
   const CLOUDINARY_UPLOAD_PRESET = process.env.CLOUDINARY_UPLOAD_PRESET || '';
-
-  console.log('[CLOUDINARY] Verificando configuração:', {
-    cloudName: CLOUDINARY_CLOUD_NAME ? '✅' : '❌',
-    uploadPreset: CLOUDINARY_UPLOAD_PRESET ? '✅' : '❌'
+  
+  console.log('[CLOUDINARY] Configuração:', {
+    cloudName: CLOUDINARY_CLOUD_NAME ? '✅ Disponível' : '❌ Faltando',
+    uploadPreset: CLOUDINARY_UPLOAD_PRESET ? '✅ Disponível' : '❌ Faltando'
   });
 
   if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
+    console.error('[CLOUDINARY ERROR] Variáveis de ambiente faltando!');
     return res.status(500).json({
       success: false,
       error: 'Cloudinary não configurado',
-      message: 'Configure CLOUDINARY_CLOUD_NAME e CLOUDINARY_UPLOAD_PRESET no Vercel',
+      message: 'Configure as variáveis CLOUDINARY_CLOUD_NAME e CLOUDINARY_UPLOAD_PRESET',
       details: {
         cloudName: !!CLOUDINARY_CLOUD_NAME,
         uploadPreset: !!CLOUDINARY_UPLOAD_PRESET
@@ -178,77 +181,109 @@ if (action === 'uploadImage') {
   }
 
   try {
-    // ⭐⭐ CORREÇÃO CRÍTICA: Vercel não expõe req.body para multipart/form-data por padrão.
-    // Precisamos usar a API nativa do Vercel para processar o upload.
-    const formData = await req.formData();
-    const file = formData.get('file');
-    const folder = formData.get('folder') || 'cardapio-digital';
-
-    if (!file) {
-      throw new Error('Nenhum arquivo foi enviado no campo "file" do FormData.');
+    console.log('[UPLOAD] Método:', req.method);
+    console.log('[UPLOAD] Content-Type:', req.headers['content-type']);
+    console.log('[UPLOAD] Body é Buffer?', Buffer.isBuffer(req.body));
+    
+    // ⭐⭐ VERCEL/Next.js: O body já é um Buffer quando é multipart/form-data
+    // Precisamos extrair o arquivo manualmente
+    
+    // Verificar se é FormData (multipart/form-data)
+    const contentType = req.headers['content-type'] || '';
+    
+    if (!contentType.includes('multipart/form-data')) {
+      console.error('[UPLOAD ERROR] Content-Type inválido:', contentType);
+      return res.status(400).json({
+        success: false,
+        error: 'Content-Type inválido',
+        message: 'Use multipart/form-data para upload de arquivos'
+      });
     }
-
-    console.log('[CLOUDINARY] Processando arquivo:', {
-      name: file.name,
-      type: file.type,
-      size: file.size,
-      folder: folder
-    });
-
-    // ⭐⭐ CRIA UM NOVO FormData para enviar ao Cloudinary
-    const cloudinaryFormData = new FormData();
-    cloudinaryFormData.append('file', file);
-    cloudinaryFormData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-    cloudinaryFormData.append('folder', folder);
-
+    
+    // ⭐⭐ SOLUÇÃO ALTERNATIVA: Enviar direto para Cloudinary
+    // Criar um proxy direto que passa o request para Cloudinary
+    
+    // Pegar o arquivo do buffer
+    const fileBuffer = req.body;
+    
+    if (!fileBuffer || fileBuffer.length === 0) {
+      console.error('[UPLOAD ERROR] Nenhum dado recebido');
+      return res.status(400).json({
+        success: false,
+        error: 'Nenhum arquivo enviado',
+        message: 'O arquivo está vazio'
+      });
+    }
+    
+    console.log('[UPLOAD] Tamanho do buffer:', fileBuffer.length, 'bytes');
+    
+    // Criar um FormData para enviar ao Cloudinary
+    const formData = new FormData();
+    
+    // Criar um blob do buffer
+    const blob = new Blob([fileBuffer]);
+    formData.append('file', blob, 'uploaded-image.png');
+    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+    formData.append('folder', 'cardapio-digital');
+    
     const cloudinaryUrl = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
-
+    
     console.log('[CLOUDINARY] Enviando para:', cloudinaryUrl);
-
-    const uploadResponse = await fetch(cloudinaryUrl, {
+    
+    // Enviar para Cloudinary
+    const cloudinaryResponse = await fetch(cloudinaryUrl, {
       method: 'POST',
-      body: cloudinaryFormData
+      body: formData
     });
-
-    if (!uploadResponse.ok) {
-      const errorText = await uploadResponse.text();
-      console.error('[CLOUDINARY ERROR] Status:', uploadResponse.status, 'Resposta:', errorText);
-      // Tenta extrair erro específico do Cloudinary
-      let cloudinaryError = 'Erro desconhecido no Cloudinary';
+    
+    console.log('[CLOUDINARY] Status:', cloudinaryResponse.status);
+    
+    if (!cloudinaryResponse.ok) {
+      const errorText = await cloudinaryResponse.text();
+      console.error('[CLOUDINARY ERROR] Resposta:', errorText);
+      
+      // Tentar extrair mensagem de erro do Cloudinary
+      let cloudinaryError = 'Erro desconhecido';
       try {
-        const errData = JSON.parse(errorText);
-        cloudinaryError = errData.error?.message || errorText.substring(0, 200);
-      } catch {}
-      throw new Error(`Cloudinary upload failed: ${cloudinaryError}`);
+        const errorData = JSON.parse(errorText);
+        cloudinaryError = errorData.error?.message || errorText;
+      } catch {
+        cloudinaryError = errorText.substring(0, 200);
+      }
+      
+      throw new Error(`Cloudinary: ${cloudinaryError}`);
     }
-
-    const uploadData = await uploadResponse.json();
-
+    
+    const result = await cloudinaryResponse.json();
+    
     console.log('[CLOUDINARY SUCCESS]:', {
-      url: uploadData.secure_url,
-      publicId: uploadData.public_id,
-      format: uploadData.format
+      url: result.secure_url,
+      public_id: result.public_id
     });
-
+    
     return res.status(200).json({
       success: true,
-      url: uploadData.secure_url,
-      public_id: uploadData.public_id,
-      format: uploadData.format,
-      width: uploadData.width,
-      height: uploadData.height
+      url: result.secure_url,
+      public_id: result.public_id,
+      format: result.format,
+      width: result.width,
+      height: result.height
     });
-
+    
   } catch (error) {
-    console.error('[CLOUDINARY UPLOAD ERROR]:', error);
+    console.error('[UPLOAD FATAL ERROR]:', error);
+    console.error('[UPLOAD Stack Trace]:', error.stack);
+    
     return res.status(500).json({
       success: false,
-      error: 'Erro no upload',
-      message: error.message
+      error: 'Erro interno no servidor',
+      message: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 }
-
+      //finaliza aqui cloudinary
+      
       // AÇÕES PERMITIDAS POST
       const allowedPostActions = [
         'salvarPedido', 'atualizarStatus', 'saveProduct',
