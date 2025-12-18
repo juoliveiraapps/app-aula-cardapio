@@ -121,11 +121,17 @@ const handleSubmit = async (e: React.FormEvent) => {
   
   const productData = {
     ...formData,
-    preco: Number(formData.preco),
-    produto_id: initialData?.produto_id || initialData?.id || '', // ⬅️ Use produto_id
-    id: undefined, // ⬅️ Remover campo "id"
+    // ⬇️ Converter string para número, tratando vírgula
+    preco: typeof formData.preco === 'string' 
+      ? parseFloat(formData.preco.replace(',', '.'))
+      : formData.preco,
+    produto_id: initialData?.produto_id || initialData?.id || '',
+    id: undefined,
     opcoes: gruposOpcoes
   };
+  
+  // Remover campo id se existir
+  delete productData.id;
   
   console.log('📤 Enviando dados do produto:', productData);
   
@@ -134,6 +140,8 @@ const handleSubmit = async (e: React.FormEvent) => {
     onClose();
   }
 };
+
+  
   if (categorias.length === 0) {
     return (
       <Portal>
