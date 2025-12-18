@@ -82,12 +82,19 @@ const uploadViaAPI = async (file: File) => {
   setUploading(true);
 
   try {
-    console.log('🌤️ Enviando DIRETAMENTE para Cloudinary...');
+    console.log('🌤️ Enviando para Cloudinary...');
     
-    const cloudName = 'SEU_CLOUD_NAME'; // Pegue do env se preferir
-    const uploadPreset = 'SEU_UPLOAD_PRESET'; // Pegue do env
+    // ⭐⭐ PEGUE DO ENV OU DEFINA DIRETO
+    const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'SEU_CLOUD_NAME_REAL';
+    const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'cardapio_digital_upload';
     
-    // ⭐⭐ Enviar DIRETO para Cloudinary (sem passar pela API)
+    console.log('🔧 Config Cloudinary:', { cloudName, uploadPreset });
+    
+    if (!cloudName || cloudName.includes('SEU_CLOUD_NAME')) {
+      throw new Error('Configure o Cloudinary nas variáveis de ambiente!');
+    }
+    
+    // Enviar DIRETO para Cloudinary
     const formData = new FormData();
     formData.append('file', file);
     formData.append('upload_preset', uploadPreset);
@@ -95,48 +102,71 @@ const uploadViaAPI = async (file: File) => {
     
     const cloudinaryUrl = `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`;
     
-    console.log('🔗 Cloudinary URL:', cloudinaryUrl);
+    console.log('🔗 Enviando para:', cloudinaryUrl);
+    console.log('📦 Dados:', {
+      file: file.name,
+      size: file.size,
+      type: file.type,
+      preset: uploadPreset
+    });
     
     const response = await fetch(cloudinaryUrl, {
       method: 'POST',
       body: formData
+      // ⭐⭐ NÃO adicione headers - Cloudinary precisa do Content-Type multipart
     });
 
-    console.log('📡 Status Cloudinary:', response.status);
+    console.log('📡 Status:', response.status, response.statusText);
+    
+    const responseText = await response.text();
+    console.log('📄 Resposta:', responseText.substring(0, 500));
     
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ Cloudinary error:', errorText);
-      throw new Error('Erro no Cloudinary');
+      // Tentar parsear erro do Cloudinary
+      try {
+        const errorData = JSON.parse(responseText);
+        throw new Error(`Cloudinary: ${errorData.error?.message || 'Erro desconhecido'}`);
+      } catch {
+        throw new Error(`Erro ${response.status}: ${responseText.substring(0, 200)}`);
+      }
     }
-
-    const data = await response.json();
-    console.log('✅ Upload direto bem-sucedido:', data.secure_url);
     
+    const data = JSON.parse(responseText);
+    console.log('✅ Upload bem-sucedido! URL:', data.secure_url);
+    
+    // Atualizar a imagem no componente pai
     onImageUploaded(data.secure_url);
+    
+    // Feedback visual
     alert('✅ Imagem enviada com sucesso!');
     
   } catch (error) {
-    console.error('❌ Erro no upload direto:', error);
+    console.error('❌ Erro no upload:', error);
     
-    // Fallback: Usar API própria se direto falhar
-    console.log('🔄 Tentando via API própria como fallback...');
+    let errorMessage = 'Erro ao fazer upload da imagem. ';
     
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('folder', 'cardapio-digital');
-    
-    const apiResponse = await fetch('/api?action=uploadImage', {
-      method: 'POST',
-      body: formData,
-    });
-    
-    if (apiResponse.ok) {
-      const apiData = await apiResponse.json();
-      onImageUploaded(apiData.url);
-    } else {
-      alert('❌ Falha no upload. Tente novamente ou use uma URL.');
+    if (error instanceof Error) {
+      errorMessage += error.message;
     }
+    
+    alert(errorMessage);
+    
+    // Opção de fallback: colar URL manualmente
+    setTimeout(() => {
+      if (confirm('Upload falhou. Deseja colar uma URL manualmente?')) {
+        const url = prompt('Cole a URL da imagem:');
+        if (url) {
+          try {
+            new URL(url); // Validar URL
+            onImageUploaded(url);
+            setPreviewUrl(url);
+          } catch {
+            alert('URL inválida.');
+          }
+        }
+      }
+    }, 500);
+    
   } finally {
     setUploading(false);
     if (fileInputRef.current) {
