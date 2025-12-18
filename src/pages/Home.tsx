@@ -19,30 +19,53 @@ export function Home() {
   const [scrollPosition, setScrollPosition] = useState(0);
 
   // Buscar parceiros da API
-  useEffect(() => {
-    const fetchParceiros = async () => {
-      try {
-        setLoadingParceiros(true);
-        const response = await fetch('/api?action=getParceiros');
-        const data = await response.json();
-        
-        if (data.success && Array.isArray(data.parceiros)) {
-          setParceiros(data.parceiros);
-        } else {
-          console.warn('Nenhum parceiro encontrado ou erro na API:', data);
-          setParceiros([]);
-        }
-      } catch (error) {
-        console.error('Erro ao buscar parceiros:', error);
-        setParceiros([]);
-      } finally {
-        setLoadingParceiros(false);
+  // Buscar parceiros da API
+useEffect(() => {
+  const fetchParceiros = async () => {
+    try {
+      setLoadingParceiros(true);
+      const response = await fetch('/api?action=getParceiros');
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-    };
+      
+      const data = await response.json();
+      
+      console.log('📊 Dados recebidos de getParceiros:', data);
+      
+      // ⭐⭐ CORREÇÃO: A API retorna ARRAY diretamente
+      if (Array.isArray(data)) {
+        // Filtrar parceiros com nome válido
+        const parceirosFiltrados = data.filter((parceiro: Parceiro) => 
+          parceiro.nome && parceiro.nome.trim() !== ''
+        );
+        
+        console.log(`✅ ${parceirosFiltrados.length} parceiros carregados`);
+        setParceiros(parceirosFiltrados);
+      } 
+      // ⭐⭐ Fallback para formato antigo (com sucesso)
+      else if (data && Array.isArray(data.parceiros)) {
+        setParceiros(data.parceiros);
+      }
+      // ⭐⭐ Fallback para formato de objeto
+      else if (data && typeof data === 'object' && data.nome) {
+        setParceiros([data]);
+      }
+      else {
+        console.warn('Formato de dados inesperado para parceiros:', data);
+        setParceiros([]);
+      }
+    } catch (error) {
+      console.error('❌ Erro ao buscar parceiros:', error);
+      setParceiros([]);
+    } finally {
+      setLoadingParceiros(false);
+    }
+  };
 
-    fetchParceiros();
-  }, []);
-
+  fetchParceiros();
+}, []);
   // Efeito para carrossel automático
   useEffect(() => {
     if (parceiros.length === 0) return;
