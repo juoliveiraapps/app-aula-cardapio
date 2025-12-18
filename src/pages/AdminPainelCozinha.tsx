@@ -51,13 +51,69 @@ const AdminPainelCozinha: React.FC = () => {
       const data = await response.json();
       console.log('📊 Pedidos recebidos:', data.pedidos?.length || 0);
       
-      if (data.success && Array.isArray(data.pedidos)) {
-        const pedidosOrdenados = [...data.pedidos].sort((a, b) => {
-          const timeA = new Date(a.timestamp || 0).getTime();
-          const timeB = new Date(b.timestamp || 0).getTime();
-          return timeB - timeA;
+      console.log('📊 Dados recebidos da API:', data);
+
+// Verificar se é array direto OU objeto com propriedade 'pedidos'
+let listaDePedidos = [];
+
+if (Array.isArray(data)) {
+  // Formato novo: a API retorna um array direto
+  console.log('✅ Formato detectado: Array direto de pedidos');
+  listaDePedidos = data;
+} else if (data && Array.isArray(data.pedidos)) {
+  // Formato antigo: a API retorna { pedidos: [] }
+  console.log('✅ Formato detectado: Objeto com propriedade "pedidos"');
+  listaDePedidos = data.pedidos;
+} else if (data.success && Array.isArray(data.pedidos)) {
+  // Formato alternativo: { success: true, pedidos: [] }
+  console.log('✅ Formato detectado: Objeto com "success" e "pedidos"');
+  listaDePedidos = data.pedidos;
+} else {
+  console.warn('⚠️ Formato de resposta não reconhecido:', data);
+  listaDePedidos = [];
+}
+
+// Se tivermos pedidos, continuar o processamento
+if (listaDePedidos.length > 0) {
+  const pedidosOrdenados = [...listaDePedidos].sort((a, b) => {
+    const timeA = new Date(a.timestamp || 0).getTime();
+    const timeB = new Date(b.timestamp || 0).getTime();
+    return timeB - timeA;
+  });
+  
+  // ⭐⭐ DETECÇÃO DE NOVO PEDIDO (mantenha seu código existente)
+  if (pedidosOrdenados.length > 0) {
+    const pedidoMaisRecente = pedidosOrdenados[0];
+    const pedidoIdMaisRecente = pedidoMaisRecente?.pedido_id;
+    
+    if (pedidoIdMaisRecente && 
+        pedidoIdMaisRecente !== ultimoPedidoId && 
+        pedidoMaisRecente.status === 'Recebido') {
+      
+      console.log('🚨 Novo pedido detectado:', pedidoIdMaisRecente);
+      setNotificacaoAtiva(true);
+      setUltimoPedidoId(pedidoIdMaisRecente);
+      
+      // Notificação do navegador
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification(`Novo Pedido #${pedidoIdMaisRecente}`, {
+          body: `${pedidoMaisRecente.cliente || 'Cliente'}`,
+          icon: '/logo-cardapio.png'
         });
-        
+      }
+      
+      setTimeout(() => setNotificacaoAtiva(false), 10000);
+    }
+  }
+  
+  setPedidos(pedidosOrdenados);
+  
+  setUltimaAtualizacao(new Date().toLocaleTimeString('pt-BR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  }));
+}
         // Detectar novo pedido
         if (pedidosOrdenados.length > 0) {
           const pedidoMaisRecente = pedidosOrdenados[0];
