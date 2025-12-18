@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ItemCarrinho } from '../../types';
-import { enviarParaWhatsApp } from '../../utils/whatsapp'; 
+import { enviarParaWhatsApp } from '../../services/sheetService';
 
 interface ModalCheckoutProps {
   isOpen: boolean;
