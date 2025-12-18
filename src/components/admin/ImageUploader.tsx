@@ -84,16 +84,16 @@ const uploadViaAPI = async (file: File) => {
   try {
     console.log('🌤️ Enviando para Cloudinary...');
     
-    // ⭐⭐ PEGUE DO ENV OU DEFINA DIRETO
-    const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'SEU_CLOUD_NAME_REAL';
-    const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'cardapio_digital_upload';
-    
+   
+    const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'dm5scqxho'; 
+    const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'cardapio_upload'; 
     console.log('🔧 Config Cloudinary:', { cloudName, uploadPreset });
     
-    if (!cloudName || cloudName.includes('SEU_CLOUD_NAME')) {
-      throw new Error('Configure o Cloudinary nas variáveis de ambiente!');
+       
+   
+    if (!cloudName || cloudName === '' || cloudName.length < 3) {
+      throw new Error('Cloudinary não configurado. Cloud Name inválido.');
     }
-    
     // Enviar DIRETO para Cloudinary
     const formData = new FormData();
     formData.append('file', file);
