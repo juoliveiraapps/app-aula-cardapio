@@ -24,7 +24,7 @@ const AdminDashboard = () => {
         <div className="px-6 py-4 flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="bg-gradient-to-r from-[#e58840] to-[#e58840]/80 w-10 h-10 rounded-xl flex items-center justify-center shadow-lg">
-              <Settings className="w-5 h-5 text-[#400b0b]" />
+              <Coffee className="w-5 h-5 text-[#400b0b]" />
             </div>
             <div>
               <h1 className="text-xl font-bold text-white">Painel Administrativo</h1>
