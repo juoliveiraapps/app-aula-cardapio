@@ -1,17 +1,93 @@
 import React, { useState } from 'react';
-import { Plus, RefreshCw } from 'lucide-react';
+import { Plus, RefreshCw, Check, X, AlertCircle } from 'lucide-react';
 import { useCardapioData } from '../hooks/useCardapioData';
 import { Produto } from '../types';
 import ProductFormMinimal from '../components/admin/ProductFormMinimal';
 import ProductList from '../components/admin/ProductList';
 import { saveProductToSheet, deleteProductFromSheet } from '../services/adminService';
 
+// Componente Toast para mensagens rápidas
+const Toast = ({ message, type, onClose }: { 
+  message: string; 
+  type: 'success' | 'error'; 
+  onClose: () => void;
+}) => {
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      onClose();
+    }, 3000); // Fecha automaticamente após 3 segundos
+
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  return (
+    <div className="fixed top-4 right-4 z-[1000] animate-slide-in">
+      <div className={`flex items-center space-x-3 px-4 py-3 rounded-lg shadow-lg ${
+        type === 'success' 
+          ? 'bg-green-900/90 border border-green-800' 
+          : 'bg-red-900/90 border border-red-800'
+      }`}>
+        <div className={`flex-shrink-0 ${
+          type === 'success' ? 'text-green-400' : 'text-red-400'
+        }`}>
+          {type === 'success' ? (
+            <Check className="w-5 h-5" />
+          ) : (
+            <AlertCircle className="w-5 h-5" />
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className={`text-sm font-medium ${
+            type === 'success' ? 'text-green-100' : 'text-red-100'
+          }`}>
+            {message}
+          </p>
+        </div>
+        <button
+          onClick={onClose}
+          className={`flex-shrink-0 hover:opacity-80 ${
+            type === 'success' ? 'text-green-300' : 'text-red-300'
+          }`}
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// Estilos CSS para animação do Toast (adicionar no seu CSS global)
+const toastStyles = `
+@keyframes slide-in {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in {
+  animation: slide-in 0.3s ease-out forwards;
+}
+`;
+
 const AdminCardapio = () => {
   const { produtos: produtosData, categorias: categoriasRaw, loading, error, refetch } = useCardapioData();
   
-  // 🔧 TRANSFORMAÇÃO DAS CATEGORIAS
+  // Estados para mensagens Toast
+  const [toast, setToast] = useState<{
+    message: string;
+    type: 'success' | 'error';
+    visible: boolean;
+  } | null>(null);
+
+  // 🔧 TRANSFORMAÇÃO DAS CATEGORIAS (MESMA LÓGICA DOS PRODUTOS)
   const categorias = categoriasRaw.map(cat => ({
-    id: cat.categoria_id,      // ← ESSENCIAL: mapeia categoria_id para id
+    id: cat.id || cat.categoria_id || '', // ⬅️ Usa ambos para compatibilidade
+    categoria_id: cat.categoria_id || cat.id || '', // ⬅️ Mantém categoria_id
     nome: cat.nome || '',
     descricao: cat.descricao || '',
     posicao: cat.posicao || 1,
@@ -26,33 +102,42 @@ const AdminCardapio = () => {
   const [editingProduct, setEditingProduct] = useState<Produto | null>(null);
   const [processing, setProcessing] = useState(false);
 
-  // Converter produtos para o formato do ProductList
+  // Converter produtos para o formato do ProductList (CORRIGIDO)
   const produtos = produtosData.map(prod => {
-  const cat = categorias.find(c => c.id === prod.categoria_id);
-  
-  return {
-    id: prod.produto_id || '',           // ⬅️ CORREÇÃO: usar produto_id
-    produto_id: prod.produto_id || '',   // ⬅️ MANTER também o produto_id
-    nome: prod.nome || '',
-    descricao: prod.descricao || '',
-    preco: prod.preco || 0,
-    imagem_url: prod.imagem_url || '',
-    categoria_id: prod.categoria_id || '',
-    categoria_nome: cat?.nome || '',
-    disponivel: prod.disponivel !== false,
-    posicao: prod.posicao || 1,
-    opcoes: prod.opcoes || []
+    const cat = categorias.find(c => c.id === prod.categoria_id || c.categoria_id === prod.categoria_id);
+    
+    return {
+      id: prod.produto_id || '',           // ⬅️ CORREÇÃO: usar produto_id
+      produto_id: prod.produto_id || '',   // ⬅️ MANTER também o produto_id
+      nome: prod.nome || '',
+      descricao: prod.descricao || '',
+      preco: prod.preco || 0,
+      imagem_url: prod.imagem_url || '',
+      categoria_id: prod.categoria_id || '',
+      categoria_nome: cat?.nome || '',
+      disponivel: prod.disponivel !== false,
+      posicao: prod.posicao || 1,
+      opcoes: prod.opcoes || []
+    };
+  });
+
+  // Função para mostrar mensagem Toast
+  const showToast = (message: string, type: 'success' | 'error') => {
+    setToast({ message, type, visible: true });
   };
-});
+
+  // Função para fechar Toast
+  const closeToast = () => {
+    setToast(null);
+  };
 
   const handleSaveProduct = async (productData: any): Promise<boolean> => {
     console.log('📝 Iniciando salvamento do produto:', productData);
     
     try {
       setProcessing(true);
-      console.log('🔄 Estado processing definido como true');
       
-      // Preparar os dados para envio
+      // Preparar os dados para envio (CRÍTICO: enviar produto_id)
       const dataToSend = {
         ...productData,
         // Garantir que o preço seja número
@@ -61,9 +146,14 @@ const AdminCardapio = () => {
           : productData.preco,
         // Converter disponível para string "true"/"false"
         disponivel: productData.disponivel ? 'TRUE' : 'FALSE',
-        // Garantir que tenha ID se for edição
-        id: productData.id || '',
+        // ⚠️ IMPORTANTE: Renomear id para produto_id se necessário
+        ...(productData.id && { produto_id: productData.id })
       };
+      
+      // Remover campo id antigo se existir
+      if (dataToSend.id) {
+        delete dataToSend.id;
+      }
       
       console.log('📤 Enviando dados para a planilha:', dataToSend);
       
@@ -72,9 +162,16 @@ const AdminCardapio = () => {
       console.log('✅ Resposta do salvamento:', response);
       
       if (response.success) {
-        alert(response.message || '✅ Produto salvo com sucesso!');
+        // Mensagem personalizada baseada se é edição ou criação
+        const isEdit = !!productData.id || !!productData.produto_id;
+        const message = isEdit 
+          ? '✅ Produto atualizado com sucesso!' 
+          : '✅ Produto cadastrado com sucesso!';
         
-        // Fechar o modal
+        // Mostrar mensagem Toast
+        showToast(message, 'success');
+        
+        // Fechar o modal imediatamente
         setShowForm(false);
         setEditingProduct(null);
         
@@ -82,11 +179,6 @@ const AdminCardapio = () => {
         if (refetch) {
           console.log('🔄 Recarregando dados via refetch');
           await refetch();
-        } else {
-          console.log('🔄 Recarregando página');
-          setTimeout(() => {
-            window.location.reload();
-          }, 500);
         }
         
         return true;
@@ -96,10 +188,9 @@ const AdminCardapio = () => {
       
     } catch (err: any) {
       console.error('❌ Erro ao salvar produto:', err);
-      alert(`❌ Erro: ${err.message || 'Erro desconhecido ao salvar produto'}`);
+      showToast(`❌ Erro: ${err.message || 'Erro ao salvar produto'}`, 'error');
       return false;
     } finally {
-      console.log('🏁 Finalizando, definindo processing como false');
       setProcessing(false);
     }
   };
@@ -118,15 +209,11 @@ const AdminCardapio = () => {
       console.log('✅ Resposta da exclusão:', response);
       
       if (response.success) {
-        alert(response.message || '✅ Produto deletado com sucesso!');
+        showToast('✅ Produto deletado com sucesso!', 'success');
         
         // Recarregar os dados
         if (refetch) {
           await refetch();
-        } else {
-          setTimeout(() => {
-            window.location.reload();
-          }, 500);
         }
       } else {
         throw new Error(response.message || 'Erro ao deletar produto');
@@ -134,7 +221,7 @@ const AdminCardapio = () => {
       
     } catch (err: any) {
       console.error('❌ Erro ao deletar produto:', err);
-      alert(`❌ Erro: ${err.message || 'Erro desconhecido ao deletar produto'}`);
+      showToast(`❌ Erro: ${err.message || 'Erro ao deletar produto'}`, 'error');
     } finally {
       setProcessing(false);
     }
@@ -152,16 +239,22 @@ const AdminCardapio = () => {
     setShowForm(true);
   };
 
-  const refreshProducts = () => {
+  const refreshProducts = async () => {
     if (refetch) {
-      refetch();
-    } else {
-      window.location.reload();
+      try {
+        await refetch();
+        showToast('✅ Lista atualizada com sucesso!', 'success');
+      } catch (error) {
+        showToast('❌ Erro ao atualizar lista', 'error');
+      }
     }
   };
 
   return (
     <>
+      {/* Estilos do Toast (pode mover para CSS global) */}
+      <style>{toastStyles}</style>
+      
       {/* Conteúdo principal da página */}
       <div className="space-y-6">
         {/* Cabeçalho */}
@@ -242,7 +335,7 @@ const AdminCardapio = () => {
         />
       </div>
 
-      {/* Modal */}
+      {/* Modal de Produto */}
       {showForm && (
         <ProductFormMinimal
           key={editingProduct?.id || 'new'}
@@ -255,6 +348,15 @@ const AdminCardapio = () => {
             setEditingProduct(null);
           }}
           loading={processing}
+        />
+      )}
+
+      {/* Toast Notification */}
+      {toast?.visible && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={closeToast}
         />
       )}
     </>
