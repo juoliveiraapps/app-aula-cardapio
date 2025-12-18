@@ -9,8 +9,7 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  // 🔧 VARIÁVEIS DE AMBIENTE DO VERCEL (SEM prefixo VITE_)
-  // ⚠️ ATENÇÃO: Use letras minúsculas ou maiúsculas consistentemente!
+  // 🔧 VARIÁVEIS DE AMBIENTE DO VERCEL
   const API_KEY = process.env.API_KEY || '';
   const GOOGLE_SCRIPT_URL = process.env.GOOGLE_SCRIPT_URL || '';
   
@@ -49,173 +48,169 @@ export default async function handler(req, res) {
       });
     }
 
-   // 🔵 ROTA GET
-if (req.method === 'GET') {
-  // AÇÕES PERMITIDAS GET
-  const allowedGetActions = [
-    'getConfig', 'getCategorias', 'getProdutos', 
-    'getBairros', 'getPedidos', 'getParceiros'
-  ];
-  
-  if (!allowedGetActions.includes(action)) {
-    return res.status(400).json({
-      error: 'Ação GET não permitida',
-      acoes_permitidas: allowedGetActions
-    });
-  }
-
-  // URL do Google Script
-  const url = `${GOOGLE_SCRIPT_URL}?action=${encodeURIComponent(action)}&key=${API_KEY}`;
-  console.log(`[GET] Fetching: ${url}`);
-
-  const response = await fetch(url, {
-    method: 'GET',
-    redirect: 'follow',
-    headers: {
-      'Accept': 'application/json',
-      'User-Agent': 'Mozilla/5.0'
-    }
-  });
-
-  const responseText = await response.text();
-  
-  console.log(`[GET Response] Status: ${response.status}, Length: ${responseText.length} chars`);
-  
-  if (!response.ok) {
-    console.error(`[GET ERROR] Status ${response.status}:`, responseText.substring(0, 500));
-    throw new Error(`Google Script returned ${response.status}`);
-  }
-
-  // Tentar parsear como JSON
-  let data;
-  try {
-    data = JSON.parse(responseText);
-  } catch (jsonError) {
-    console.error('[JSON Parse Error] Response:', responseText.substring(0, 500));
-    throw new Error(`Invalid JSON response from Google Script`);
-  }
-
-  // 🔧 PROCESSAMENTO ESPECÍFICO PARA CADA AÇÃO
-  
-  // Configurações da loja
-  if (action === 'getConfig') {
-    console.log('[CONFIG DEBUG] Dados brutos do Google Script:', {
-      type: typeof data,
-      isArray: Array.isArray(data),
-      keys: data ? Object.keys(data) : 'no data',
-      raw: data
-    });
-    
-    // Se for array, pegar o primeiro objeto
-    if (Array.isArray(data) && data.length > 0) {
-      console.log('[CONFIG] Transformando array para objeto:', data[0]);
-      data = data[0];
-    }
-    
-    // CORREÇÃO: Ajustar os nomes das propriedades que estão trocados
-    // Seus dados estão vindo como: {"whatsapp": "moeda", "moeda": "R$", ...}
-    // Isso indica que a planilha tem os valores trocados
-    
-    const processedConfig = {
-      telefone_whatsapp: data.telefone_whatsapp || data.whatsapp || '',
-      moeda: data.moeda || 'BRL',
-      nome_loja: data.nome_loja || data.Loja || 'Loja',
-      pedido_minimo_entrega: parseFloat(data.pedido_minimo_entrega) || 0,
-      mensagem_retirada: data.mensagem_retirada || 'Pedido disponível para retirada em 20 minutos'
-    };
-    
-    // Debug: verificar se os dados estão trocados
-    console.log('[CONFIG DEBUG] Dados recebidos do Google Script:');
-    console.log('- telefone_whatsapp:', data.telefone_whatsapp);
-    console.log('- whatsapp:', data.whatsapp);
-    console.log('- moeda:', data.moeda);
-    console.log('- Loja:', data.Loja);
-    console.log('- nome_loja:', data.nome_loja);
-    
-    console.log('[CONFIG] Configuração processada para frontend:', processedConfig);
-    data = processedConfig;
-  }
-
-  // Processamento de parceiros
-  if (action === 'getParceiros') {
-    console.log('[PARCEIROS DEBUG] Dados brutos do Google Script:', {
-      type: typeof data,
-      isArray: Array.isArray(data),
-      keys: data ? Object.keys(data) : 'no data',
-      raw: JSON.stringify(data).substring(0, 500)
-    });
-    
-    // Se a API retornar objeto com estrutura { success, total, parceiros }
-    if (data && typeof data === 'object' && data.success !== undefined) {
-      console.log(`[PARCEIROS] Formato objeto com sucesso: ${data.success}, total: ${data.total}`);
+    // 🔵 ROTA GET
+    if (req.method === 'GET') {
+      // AÇÕES PERMITIDAS GET
+      const allowedGetActions = [
+        'getConfig', 'getCategorias', 'getProdutos', 
+        'getBairros', 'getPedidos', 'getParceiros'
+      ];
       
-      if (data.parceiros && Array.isArray(data.parceiros)) {
-        console.log(`[PARCEIROS] ${data.parceiros.length} parceiros encontrados`);
-        
-        // Padronizar os nomes das propriedades
-        const parceirosProcessados = data.parceiros.map(parceiro => ({
-          nome: parceiro.nome || '',
-          imagem: parceiro.imagem || '',
-          descricao: parceiro.descricao || parceiro.descrição || ''
-        }));
-        
-        data = {
-          success: true,
-          total: parceirosProcessados.length,
-          parceiros: parceirosProcessados
-        };
-      } else {
-        console.log('[PARCEIROS] Formato correto mas sem array de parceiros');
-        data = {
-          success: true,
-          total: 0,
-          parceiros: []
-        };
+      if (!allowedGetActions.includes(action)) {
+        return res.status(400).json({
+          error: 'Ação GET não permitida',
+          acoes_permitidas: allowedGetActions
+        });
       }
-    } 
-    // Se retornar array direto
-    else if (Array.isArray(data)) {
-      console.log(`[PARCEIROS] Array direto com ${data.length} parceiros`);
+
+      // URL do Google Script
+      const url = `${GOOGLE_SCRIPT_URL}?action=${encodeURIComponent(action)}&key=${API_KEY}`;
+      console.log(`[GET] Fetching: ${url}`);
+
+      const response = await fetch(url, {
+        method: 'GET',
+        redirect: 'follow',
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'Mozilla/5.0'
+        }
+      });
+
+      const responseText = await response.text();
       
-      const parceirosProcessados = data.map(parceiro => ({
-        nome: parceiro.nome || '',
-        imagem: parceiro.imagem || '',
-        descricao: parceiro.descricao || parceiro.descrição || ''
-      }));
+      console.log(`[GET Response] Status: ${response.status}, Length: ${responseText.length} chars`);
       
-      data = {
-        success: true,
-        total: parceirosProcessados.length,
-        parceiros: parceirosProcessados
-      };
+      if (!response.ok) {
+        console.error(`[GET ERROR] Status ${response.status}:`, responseText.substring(0, 500));
+        throw new Error(`Google Script returned ${response.status}`);
+      }
+
+      // Tentar parsear como JSON
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (jsonError) {
+        console.error('[JSON Parse Error] Response:', responseText.substring(0, 500));
+        throw new Error(`Invalid JSON response from Google Script`);
+      }
+
+      // 🔧 PROCESSAMENTO ESPECÍFICO PARA CADA AÇÃO
+      
+      // Configurações da loja
+      if (action === 'getConfig') {
+        console.log('[CONFIG DEBUG] Dados brutos do Google Script:', {
+          type: typeof data,
+          isArray: Array.isArray(data),
+          keys: data ? Object.keys(data) : 'no data',
+          raw: data
+        });
+        
+        // Se for array, pegar o primeiro objeto
+        if (Array.isArray(data) && data.length > 0) {
+          console.log('[CONFIG] Transformando array para objeto:', data[0]);
+          data = data[0];
+        }
+        
+        // CORREÇÃO: Ajustar os nomes das propriedades
+        const processedConfig = {
+          telefone_whatsapp: data.telefone_whatsapp || data.whatsapp || '',
+          moeda: data.moeda || 'BRL',
+          nome_loja: data.nome_loja || data.Loja || 'Loja',
+          pedido_minimo_entrega: parseFloat(data.pedido_minimo_entrega) || 0,
+          mensagem_retirada: data.mensagem_retirada || 'Pedido disponível para retirada em 20 minutos'
+        };
+        
+        console.log('[CONFIG DEBUG] Dados recebidos do Google Script:');
+        console.log('- telefone_whatsapp:', data.telefone_whatsapp);
+        console.log('- whatsapp:', data.whatsapp);
+        console.log('- moeda:', data.moeda);
+        console.log('- Loja:', data.Loja);
+        console.log('- nome_loja:', data.nome_loja);
+        
+        console.log('[CONFIG] Configuração processada para frontend:', processedConfig);
+        data = processedConfig;
+      }
+
+      // Processamento de parceiros
+      if (action === 'getParceiros') {
+        console.log('[PARCEIROS DEBUG] Dados brutos do Google Script:', {
+          type: typeof data,
+          isArray: Array.isArray(data),
+          keys: data ? Object.keys(data) : 'no data',
+          raw: JSON.stringify(data).substring(0, 500)
+        });
+        
+        // Se a API retornar objeto com estrutura { success, total, parceiros }
+        if (data && typeof data === 'object' && data.success !== undefined) {
+          console.log(`[PARCEIROS] Formato objeto com sucesso: ${data.success}, total: ${data.total}`);
+          
+          if (data.parceiros && Array.isArray(data.parceiros)) {
+            console.log(`[PARCEIROS] ${data.parceiros.length} parceiros encontrados`);
+            
+            // Padronizar os nomes das propriedades
+            const parceirosProcessados = data.parceiros.map(parceiro => ({
+              nome: parceiro.nome || '',
+              imagem: parceiro.imagem || '',
+              descricao: parceiro.descricao || parceiro.descrição || ''
+            }));
+            
+            data = {
+              success: true,
+              total: parceirosProcessados.length,
+              parceiros: parceirosProcessados
+            };
+          } else {
+            console.log('[PARCEIROS] Formato correto mas sem array de parceiros');
+            data = {
+              success: true,
+              total: 0,
+              parceiros: []
+            };
+          }
+        } 
+        // Se retornar array direto
+        else if (Array.isArray(data)) {
+          console.log(`[PARCEIROS] Array direto com ${data.length} parceiros`);
+          
+          const parceirosProcessados = data.map(parceiro => ({
+            nome: parceiro.nome || '',
+            imagem: parceiro.imagem || '',
+            descricao: parceiro.descricao || parceiro.descrição || ''
+          }));
+          
+          data = {
+            success: true,
+            total: parceirosProcessados.length,
+            parceiros: parceirosProcessados
+          };
+        }
+        // Formato inesperado
+        else {
+          console.log('[PARCEIROS] Formato inesperado, forçando estrutura:', typeof data);
+          data = {
+            success: true,
+            total: 0,
+            parceiros: []
+          };
+        }
+        
+        console.log('[PARCEIROS] Dados processados para frontend:', {
+          success: data.success,
+          total: data.total,
+          parceirosCount: data.parceiros?.length || 0
+        });
+      }
+
+      console.log(`[GET SUCCESS] ${action}:`, 
+        action === 'getPedidos' 
+          ? `${data.pedidos?.length || 0} pedidos` 
+          : Array.isArray(data) ? `${data.length} items` : 'object'
+      );
+
+      return res.status(200).json(data);
     }
-    // Formato inesperado
-    else {
-      console.log('[PARCEIROS] Formato inesperado, forçando estrutura:', typeof data);
-      data = {
-        success: true,
-        total: 0,
-        parceiros: []
-      };
-    }
-    
-    console.log('[PARCEIROS] Dados processados para frontend:', {
-      success: data.success,
-      total: data.total,
-      parceirosCount: data.parceiros?.length || 0
-    });
-  }
 
-  console.log(`[GET SUCCESS] ${action}:`, 
-    action === 'getPedidos' 
-      ? `${data.pedidos?.length || 0} pedidos` 
-      : Array.isArray(data) ? `${data.length} items` : 'object'
-  );
-
-  return res.status(200).json(data);
-}
-
-    // 🔴 ROTA POST
+    // 🔴 ROTA POST - CORRIGIDA!
     if (req.method === 'POST') {
       console.log(`[POST] Ação: ${action}, Body:`, req.body);
 
@@ -335,13 +330,28 @@ if (req.method === 'GET') {
         console.log('[CATEGORIA] Campos:', {
           id: req.body.id || 'novo',
           nome: req.body.nome,
-          posicao: req.body.posicao
+          posicao: req.body.posicao,
+          visivel: req.body.visivel,
+          icone_svg: req.body.icone_svg
         });
       }
 
       if (action === 'deletarCategoria') {
         console.log('[CATEGORIA DELETE] ID:', req.body.id);
       }
+
+      // ⭐⭐⭐ CORREÇÃO CRÍTICA: O Google Apps Script espera que o body seja uma STRING JSON
+      // Não um objeto, mas uma string que será parseada pelo script
+      const bodyString = JSON.stringify(req.body);
+      
+      console.log(`[POST DEBUG] Enviando como string JSON:`, {
+        length: bodyString.length,
+        preview: bodyString.substring(0, 200)
+      });
+
+      // DEBUG EXTRA: Log da URL completa
+      console.log(`[POST DEBUG] URL completa: ${url}`);
+      console.log(`[POST DEBUG] API Key usada: ${API_KEY.substring(0, 10)}...`);
 
       const response = await fetch(url, {
         method: 'POST',
@@ -351,17 +361,17 @@ if (req.method === 'GET') {
           'Accept': 'application/json',
           'User-Agent': 'Mozilla/5.0'
         },
-        body: JSON.stringify(req.body)
+        body: bodyString // ⬅️ Enviar como STRING, não como objeto
       });
 
       const responseText = await response.text();
 
       console.log(`[POST Response - ${action}] Status: ${response.status}`);
-      console.log(`[POST Response - ${action}] Body:`, responseText.substring(0, 500));
+      console.log(`[POST Response - ${action}] Body (primeiros 1000 chars):`, responseText.substring(0, 1000));
       
       if (!response.ok) {
-        console.error(`[POST ERROR - ${action}] Status ${response.status}:`, responseText.substring(0, 200));
-        throw new Error(`Google Script returned ${response.status}`);
+        console.error(`[POST ERROR - ${action}] Status ${response.status}:`, responseText.substring(0, 500));
+        throw new Error(`Google Script returned ${response.status}: ${responseText.substring(0, 200)}`);
       }
 
       let result;
@@ -369,10 +379,19 @@ if (req.method === 'GET') {
         result = JSON.parse(responseText);
       } catch (jsonError) {
         console.error(`[POST JSON Parse Error - ${action}]:`, responseText);
-        throw new Error('Invalid JSON response from Google Script');
+        // Se não conseguir parsear, retornar o texto cru para debug
+        return res.status(200).json({
+          rawResponse: responseText,
+          warning: 'Could not parse as JSON',
+          length: responseText.length
+        });
       }
 
-      console.log(`[POST SUCCESS - ${action}]:`, result);
+      console.log(`[POST SUCCESS - ${action}]:`, {
+        success: result.success,
+        message: result.message,
+        error: result.error
+      });
 
       return res.status(200).json(result);
     }
