@@ -86,52 +86,46 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
     return Object.keys(errors).length === 0;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+ const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
 
-    if (!validateForm()) {
-      return;
-    }
+  if (!validateForm()) {
+    return;
+  }
 
-    // ⭐⭐ CORREÇÃO CRÍTICA: Preparar dados corretamente para o Google Apps Script
-    const dataToSubmit: any = {
-      ...formData,
-      // ⭐ Enviar o campo correto para o Google Script (icone em vez de icone_svg)
-      icone: formData.icone_svg
-    };
-
-    // ⭐⭐ IMPORTANTE: Enviar ID para atualização
-    if (initialData?.id) {
-      // O Google Apps Script espera o campo 'id' na aba CATEGORIAS
-      dataToSubmit.id = initialData.id;
-    }
-    
-    // ⭐ Se tiver categoria_id também, enviar para compatibilidade
-    if (initialData?.categoria_id) {
-      dataToSubmit.categoria_id = initialData.categoria_id;
-    }
-
-    console.log('[CategoryForm] Enviando dados PARA API:', {
-      dados: dataToSubmit,
-      modo: initialData?.id ? 'UPDATE' : 'INSERT',
-      temId: !!dataToSubmit.id,
-      idValue: dataToSubmit.id
-    });
-
-    const success = await onSubmit(dataToSubmit);
-    if (success) {
-      // Reset form only on success
-      if (!initialData?.id) {
-        setFormData({
-          nome: '',
-          descricao: '',
-          posicao: 1,
-          visivel: true,
-          icone_svg: 'M12 2v20 M17 5H9.5a3.5 3.5 0 1 0 0 7H14 M7 19H4'
-        });
-      }
-    }
+  // exportNVIAR categoria_id EM VEZ DE id
+  const dataToSubmit: any = {
+    ...formData,
+    icone_svg: formData.icone_svg // Já está correto
   };
+
+  // Se estiver editando, envia categoria_id
+  if (initialData?.categoria_id) {
+    dataToSubmit.categoria_id = initialData.categoria_id;
+  }
+  // Para compatibilidade, também enviar id se existir
+  if (initialData?.id) {
+    dataToSubmit.id = initialData.id;
+  }
+
+  console.log('[CategoryForm] Enviando dados:', {
+    ...dataToSubmit,
+    modo: initialData?.categoria_id ? 'UPDATE' : 'INSERT'
+  });
+
+  const success = await onSubmit(dataToSubmit);
+  if (success) {
+    if (!initialData?.categoria_id) {
+      setFormData({
+        nome: '',
+        descricao: '',
+        posicao: 1,
+        visivel: true,
+        icone_svg: 'M12 2v20 M17 5H9.5a3.5 3.5 0 1 0 0 7H14 M7 19H4'
+      });
+    }
+  }
+};
 
   const handleIconSelect = (path: string) => {
     setFormData({ ...formData, icone_svg: path });
