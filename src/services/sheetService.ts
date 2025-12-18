@@ -237,7 +237,7 @@ export const enviarParaWhatsApp = (
   }
 
   try {
-    // ⭐⭐ VALIDAÇÃO INICIAL
+    // VALIDAÇÃO INICIAL
     if (!telefoneWhatsApp || !mensagem) {
       console.error('Telefone ou mensagem vazios');
       return { sucesso: false, url: '', popupBloqueado: false };
@@ -250,7 +250,7 @@ export const enviarParaWhatsApp = (
       return { sucesso: false, url: '', popupBloqueado: false };
     }
     
-    // ⭐⭐ USAR wa.me (mais confiável que web.whatsapp.com)
+    // USAR wa.me (mais confiável que web.whatsapp.com)
     const mensagemCodificada = encodeURIComponent(mensagem);
     const url = `https://wa.me/${telefoneFormatado}?text=${mensagemCodificada}`;
     
