@@ -112,7 +112,7 @@ const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
   
   if (!validateForm()) {
@@ -122,8 +122,9 @@ const ProductFormMinimal: React.FC<ProductFormMinimalProps> = ({
   const productData = {
     ...formData,
     preco: Number(formData.preco),
-    id: initialData?.id || '',
-    opcoes: gruposOpcoes  // ← ADICIONE ESTA LINHA
+    produto_id: initialData?.produto_id || initialData?.id || '', // ⬅️ Use produto_id
+    id: undefined, // ⬅️ Remover campo "id"
+    opcoes: gruposOpcoes
   };
   
   console.log('📤 Enviando dados do produto:', productData);
