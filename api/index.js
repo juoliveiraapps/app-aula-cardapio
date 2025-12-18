@@ -48,167 +48,178 @@ export default async function handler(req, res) {
       });
     }
 
-    // 🔵 ROTA GET
-    if (req.method === 'GET') {
-      // AÇÕES PERMITIDAS GET
-      const allowedGetActions = [
-        'getConfig', 'getCategorias', 'getProdutos', 
-        'getBairros', 'getPedidos', 'getParceiros'
-      ];
+  // 🔵 ROTA GET - CORRIGIDA
+if (req.method === 'GET') {
+  // AÇÕES PERMITIDAS GET
+  const allowedGetActions = [
+    'getConfig', 'getCategorias', 'getProdutos', 
+    'getBairros', 'getPedidos', 'getParceiros'
+  ];
+  
+  if (!allowedGetActions.includes(action)) {
+    return res.status(400).json({
+      error: 'Ação GET não permitida',
+      acoes_permitidas: allowedGetActions
+    });
+  }
+
+  // URL do Google Script
+  const url = `${GOOGLE_SCRIPT_URL}?action=${encodeURIComponent(action)}&key=${API_KEY}`;
+  console.log(`[GET] Fetching: ${url}`);
+
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      redirect: 'follow',
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'Mozilla/5.0'
+      },
+      // ⭐ ADICIONE timeout
+      timeout: 10000 // 10 segundos
+    });
+
+    const responseText = await response.text();
+    
+    console.log(`[GET Response] Status: ${response.status}, Length: ${responseText.length} chars`);
+    
+    // ⭐ CORREÇÃO: Verificar se a resposta está vazia ou não é JSON
+    if (!response.ok) {
+      console.error(`[GET ERROR] Status ${response.status}:`, responseText.substring(0, 500));
       
-      if (!allowedGetActions.includes(action)) {
-        return res.status(400).json({
-          error: 'Ação GET não permitida',
-          acoes_permitidas: allowedGetActions
+      // Se for erro 401/403, pode ser problema de API key
+      if (response.status === 401 || response.status === 403) {
+        return res.status(response.status).json({
+          error: 'Erro de autenticação',
+          message: 'API Key inválida ou expirada',
+          action: action
         });
       }
-
-      // URL do Google Script
-      const url = `${GOOGLE_SCRIPT_URL}?action=${encodeURIComponent(action)}&key=${API_KEY}`;
-      console.log(`[GET] Fetching: ${url}`);
-
-      const response = await fetch(url, {
-        method: 'GET',
-        redirect: 'follow',
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'Mozilla/5.0'
-        }
+      
+      // Para outros erros, retornar o que o Google Script disse
+      return res.status(response.status).json({
+        error: 'Erro do Google Script',
+        message: responseText.substring(0, 200),
+        action: action
       });
-
-      const responseText = await response.text();
-      
-      console.log(`[GET Response] Status: ${response.status}, Length: ${responseText.length} chars`);
-      
-      if (!response.ok) {
-        console.error(`[GET ERROR] Status ${response.status}:`, responseText.substring(0, 500));
-        throw new Error(`Google Script returned ${response.status}`);
-      }
-
-      // Tentar parsear como JSON
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (jsonError) {
-        console.error('[JSON Parse Error] Response:', responseText.substring(0, 500));
-        throw new Error(`Invalid JSON response from Google Script`);
-      }
-
-      // 🔧 PROCESSAMENTO ESPECÍFICO PARA CADA AÇÃO
-      
-      // Configurações da loja
-      if (action === 'getConfig') {
-        console.log('[CONFIG DEBUG] Dados brutos do Google Script:', {
-          type: typeof data,
-          isArray: Array.isArray(data),
-          keys: data ? Object.keys(data) : 'no data',
-          raw: data
-        });
-        
-        // Se for array, pegar o primeiro objeto
-        if (Array.isArray(data) && data.length > 0) {
-          console.log('[CONFIG] Transformando array para objeto:', data[0]);
-          data = data[0];
-        }
-        
-        // CORREÇÃO: Ajustar os nomes das propriedades
-        const processedConfig = {
-          telefone_whatsapp: data.telefone_whatsapp || data.whatsapp || '',
-          moeda: data.moeda || 'BRL',
-          nome_loja: data.nome_loja || data.Loja || 'Loja',
-          pedido_minimo_entrega: parseFloat(data.pedido_minimo_entrega) || 0,
-          mensagem_retirada: data.mensagem_retirada || 'Pedido disponível para retirada em 20 minutos'
-        };
-        
-        console.log('[CONFIG DEBUG] Dados recebidos do Google Script:');
-        console.log('- telefone_whatsapp:', data.telefone_whatsapp);
-        console.log('- whatsapp:', data.whatsapp);
-        console.log('- moeda:', data.moeda);
-        console.log('- Loja:', data.Loja);
-        console.log('- nome_loja:', data.nome_loja);
-        
-        console.log('[CONFIG] Configuração processada para frontend:', processedConfig);
-        data = processedConfig;
-      }
-
-      // Processamento de parceiros
-      if (action === 'getParceiros') {
-        console.log('[PARCEIROS DEBUG] Dados brutos do Google Script:', {
-          type: typeof data,
-          isArray: Array.isArray(data),
-          keys: data ? Object.keys(data) : 'no data',
-          raw: JSON.stringify(data).substring(0, 500)
-        });
-        
-        // Se a API retornar objeto com estrutura { success, total, parceiros }
-        if (data && typeof data === 'object' && data.success !== undefined) {
-          console.log(`[PARCEIROS] Formato objeto com sucesso: ${data.success}, total: ${data.total}`);
-          
-          if (data.parceiros && Array.isArray(data.parceiros)) {
-            console.log(`[PARCEIROS] ${data.parceiros.length} parceiros encontrados`);
-            
-            // Padronizar os nomes das propriedades
-            const parceirosProcessados = data.parceiros.map(parceiro => ({
-              nome: parceiro.nome || '',
-              imagem: parceiro.imagem || '',
-              descricao: parceiro.descricao || parceiro.descrição || ''
-            }));
-            
-            data = {
-              success: true,
-              total: parceirosProcessados.length,
-              parceiros: parceirosProcessados
-            };
-          } else {
-            console.log('[PARCEIROS] Formato correto mas sem array de parceiros');
-            data = {
-              success: true,
-              total: 0,
-              parceiros: []
-            };
-          }
-        } 
-        // Se retornar array direto
-        else if (Array.isArray(data)) {
-          console.log(`[PARCEIROS] Array direto com ${data.length} parceiros`);
-          
-          const parceirosProcessados = data.map(parceiro => ({
-            nome: parceiro.nome || '',
-            imagem: parceiro.imagem || '',
-            descricao: parceiro.descricao || parceiro.descrição || ''
-          }));
-          
-          data = {
-            success: true,
-            total: parceirosProcessados.length,
-            parceiros: parceirosProcessados
-          };
-        }
-        // Formato inesperado
-        else {
-          console.log('[PARCEIROS] Formato inesperado, forçando estrutura:', typeof data);
-          data = {
-            success: true,
-            total: 0,
-            parceiros: []
-          };
-        }
-        
-        console.log('[PARCEIROS] Dados processados para frontend:', {
-          success: data.success,
-          total: data.total,
-          parceirosCount: data.parceiros?.length || 0
-        });
-      }
-
-      console.log(`[GET SUCCESS] ${action}:`, 
-        action === 'getPedidos' 
-          ? `${data.pedidos?.length || 0} pedidos` 
-          : Array.isArray(data) ? `${data.length} items` : 'object'
-      );
-
-      return res.status(200).json(data);
     }
+
+    // ⭐ CORREÇÃO: Verificar se a resposta está vazia
+    if (!responseText || responseText.trim() === '') {
+      console.log('[GET WARNING] Resposta vazia do Google Script');
+      
+      // Retornar array vazio ou objeto vazio dependendo da ação
+      let emptyResponse;
+      if (action === 'getConfig') {
+        emptyResponse = {
+          telefone_whatsapp: '',
+          moeda: 'BRL',
+          nome_loja: 'Loja',
+          pedido_minimo_entrega: 0,
+          mensagem_retirada: 'Pedido disponível para retirada em 20 minutos'
+        };
+      } else if (['getCategorias', 'getProdutos', 'getBairros', 'getPedidos', 'getParceiros'].includes(action)) {
+        emptyResponse = [];
+      } else {
+        emptyResponse = {};
+      }
+      
+      return res.status(200).json(emptyResponse);
+    }
+
+    // ⭐ CORREÇÃO: Tentar parsear como JSON com tratamento melhor
+    let data;
+    try {
+      // Primeiro, tente parsear normalmente
+      data = JSON.parse(responseText);
+    } catch (jsonError) {
+      console.error('[JSON Parse Error] Response:', responseText.substring(0, 500));
+      
+      // Se falhar, pode ser HTML (página de erro) ou texto simples
+      if (responseText.includes('<html') || responseText.includes('<!DOCTYPE')) {
+        console.error('[ERROR] Google Script retornou HTML em vez de JSON');
+        return res.status(500).json({
+          error: 'Google Script retornou página HTML',
+          message: 'Verifique se o script está publicado corretamente',
+          action: action
+        });
+      }
+      
+      // Se for texto simples (não JSON), tentar transformar
+      console.log('[WARNING] Resposta não é JSON válido, tentando processar como texto...');
+      
+      // Para getConfig, que espera objeto
+      if (action === 'getConfig') {
+        data = {
+          telefone_whatsapp: '',
+          moeda: 'BRL',
+          nome_loja: 'Loja',
+          pedido_minimo_entrega: 0,
+          mensagem_retirada: 'Pedido disponível para retirada em 20 minutos'
+        };
+      } else {
+        // Para outras ações, retornar array vazio
+        data = [];
+      }
+    }
+
+    // 🔧 PROCESSAMENTO ESPECÍFICO PARA CADA AÇÃO
+    if (action === 'getConfig') {
+      // Se data for array, pegar primeiro item
+      if (Array.isArray(data) && data.length > 0) {
+        data = data[0];
+      }
+      
+      // Garantir que seja um objeto
+      if (typeof data !== 'object' || data === null) {
+        data = {};
+      }
+      
+      const processedConfig = {
+        telefone_whatsapp: data.telefone_whatsapp || data.whatsapp || '',
+        moeda: data.moeda || 'BRL',
+        nome_loja: data.nome_loja || data.Loja || 'Loja',
+        pedido_minimo_entrega: parseFloat(data.pedido_minimo_entrega) || 0,
+        mensagem_retirada: data.mensagem_retirada || 'Pedido disponível para retirada em 20 minutos'
+      };
+      
+      console.log('[CONFIG] Configuração processada:', processedConfig);
+      data = processedConfig;
+    }
+
+    // Para ações que devem retornar arrays
+    const arrayActions = ['getCategorias', 'getProdutos', 'getBairros', 'getPedidos', 'getParceiros'];
+    if (arrayActions.includes(action)) {
+      // Garantir que seja array
+      if (!Array.isArray(data)) {
+        console.log(`[WARNING] ${action} não retornou array, convertendo...`);
+        data = [];
+      }
+    }
+
+    console.log(`[GET SUCCESS] ${action}:`, 
+      Array.isArray(data) ? `${data.length} itens` : 'objeto config'
+    );
+
+    return res.status(200).json(data);
+
+  } catch (fetchError) {
+    console.error(`[GET FETCH ERROR - ${action}]:`, fetchError.message);
+    
+    // Retornar resposta segura em caso de erro
+    if (action === 'getConfig') {
+      return res.status(200).json({
+        telefone_whatsapp: '',
+        moeda: 'BRL',
+        nome_loja: 'Loja',
+        pedido_minimo_entrega: 0,
+        mensagem_retirada: 'Pedido disponível para retirada em 20 minutos'
+      });
+    } else {
+      return res.status(200).json([]);
+    }
+  }
+}
 
     // 🔴 ROTA POST - CORRIGIDA!
     if (req.method === 'POST') {
