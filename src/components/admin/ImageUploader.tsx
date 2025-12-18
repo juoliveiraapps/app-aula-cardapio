@@ -78,90 +78,72 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
     await uploadViaAPI(file);
   };
 
-  const uploadViaAPI = async (file: File) => {
-    setUploading(true);
+const uploadViaAPI = async (file: File) => {
+  setUploading(true);
 
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('folder', 'cardapio-digital');
+  try {
+    console.log('🌤️ Enviando DIRETAMENTE para Cloudinary...');
+    
+    const cloudName = 'SEU_CLOUD_NAME'; // Pegue do env se preferir
+    const uploadPreset = 'SEU_UPLOAD_PRESET'; // Pegue do env
+    
+    // ⭐⭐ Enviar DIRETO para Cloudinary (sem passar pela API)
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', uploadPreset);
+    formData.append('folder', 'cardapio-digital');
+    
+    const cloudinaryUrl = `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`;
+    
+    console.log('🔗 Cloudinary URL:', cloudinaryUrl);
+    
+    const response = await fetch(cloudinaryUrl, {
+      method: 'POST',
+      body: formData
+    });
 
-      console.log('🌤️ Enviando para API própria...', {
-        fileName: file.name,
-        fileSize: file.size,
-        fileType: file.type
-      });
-
-      // Use SUA API como proxy
-      const response = await fetch('/api?action=uploadImage', {
-        method: 'POST',
-        body: formData,
-      });
-
-      console.log('📡 Resposta da API:', {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Erro na API:', errorText);
-        
-        let errorMessage = 'Erro ao fazer upload da imagem. ';
-        try {
-          const errorData = JSON.parse(errorText);
-          if (errorData.error?.message) {
-            errorMessage += errorData.error.message;
-          }
-        } catch {
-          errorMessage += `Status: ${response.status}`;
-        }
-        throw new Error(errorMessage);
-      }
-
-      const data = await response.json();
-      console.log('✅ Upload via API bem-sucedido:', {
-        url: data.url,
-        publicId: data.public_id,
-        success: data.success
-      });
-      
-      if (data.success && data.url) {
-        // Aplicar transformações na URL se for do Cloudinary
-        const optimizedUrl = optimizeCloudinaryUrl(data.url);
-        console.log('🔄 URL otimizada:', optimizedUrl);
-        
-        onImageUploaded(optimizedUrl);
-        alert('✅ Imagem enviada com sucesso!');
-      } else {
-        throw new Error('Resposta inválida da API');
-      }
-      
-    } catch (error) {
-      console.error('❌ Erro no upload:', error);
-      
-      let errorMessage = 'Erro ao fazer upload da imagem. ';
-      if (error instanceof Error) {
-        errorMessage += error.message;
-      }
-      
-      alert(errorMessage);
-      setPreviewUrl(null);
-      
-      // Fallback: Permitir colar URL manualmente
-      setTimeout(() => {
-        if (confirm('Deseja colar uma URL da imagem manualmente?')) {
-          handlePasteUrl();
-        }
-      }, 500);
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+    console.log('📡 Status Cloudinary:', response.status);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Cloudinary error:', errorText);
+      throw new Error('Erro no Cloudinary');
     }
-  };
+
+    const data = await response.json();
+    console.log('✅ Upload direto bem-sucedido:', data.secure_url);
+    
+    onImageUploaded(data.secure_url);
+    alert('✅ Imagem enviada com sucesso!');
+    
+  } catch (error) {
+    console.error('❌ Erro no upload direto:', error);
+    
+    // Fallback: Usar API própria se direto falhar
+    console.log('🔄 Tentando via API própria como fallback...');
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('folder', 'cardapio-digital');
+    
+    const apiResponse = await fetch('/api?action=uploadImage', {
+      method: 'POST',
+      body: formData,
+    });
+    
+    if (apiResponse.ok) {
+      const apiData = await apiResponse.json();
+      onImageUploaded(apiData.url);
+    } else {
+      alert('❌ Falha no upload. Tente novamente ou use uma URL.');
+    }
+  } finally {
+    setUploading(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }
+};
 
   const handleRemoveImage = () => {
     setPreviewUrl(null);
