@@ -85,23 +85,24 @@ const validarCupomFrontend = async () => {
   setCupomErro('');
 
   try {
+    // FORMA CORRETA: Enviar como JSON em vez de URL encoded
     const resposta = await fetch('/api', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Type': 'application/json', // Mude para JSON
       },
-      body: new URLSearchParams({
+      body: JSON.stringify({
         key: 'cce4d5770afe09d2c790dcca4272e1190462a6a574270b040c835889115c6914',
         action: 'validarCupom',
         codigo: codigoCupom.trim().toUpperCase(),
-        subtotal: subtotal.toString(),
-        tipo_entrega: tipoEntrega // ← ADICIONE ESTA LINHA
+        subtotal: subtotal,
+        tipo_entrega: tipoEntrega
       })
     });
 
     const resultado = await resposta.json();
     
-    console.log('Resposta cupom:', resultado); // Para debug
+    console.log('Resposta cupom:', resultado);
     
     if (resultado.valido) {
       setCupomValido(resultado);
