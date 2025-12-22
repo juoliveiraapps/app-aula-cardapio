@@ -727,9 +727,13 @@ const validarCupomFrontend = async () => {
                     </p>
                   )}
                   
-                  <p className="text-xs text-[#400b0b]/60 mt-1">
-                    Cupons válidos apenas para {tipoEntrega === 'retirada' ? 'retirada' : 'delivery'}.
-                  </p>
+                 <p className="text-xs text-[#400b0b]/60 mt-1">
+  {tipoEntrega === 'retirada' 
+    ? 'Cupons válidos apenas para retirada.' 
+    : tipoEntrega === 'delivery'
+    ? 'Cupons válidos apenas para delivery.'
+    : 'Cupons não disponíveis para consumo local.'}
+</p>
                 </div>
               ) : (
                 <div className="bg-green-50 border border-green-200 rounded-xl p-4">
