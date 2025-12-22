@@ -1,319 +1,56 @@
-// api/index.js
-export default async function handler(req, res) {
-  // Configurar CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+const validarCupomFrontend = async () => {
+  if (!codigoCupom.trim()) {
+    setCupomErro('Digite um código de cupom');
+    return;
   }
 
-  // 🔧 VARIÁVEIS DE AMBIENTE DO VERCEL
-  const API_KEY = process.env.API_KEY || '';
-  const GOOGLE_SCRIPT_URL = process.env.GOOGLE_SCRIPT_URL || '';
-  
-  // 🔍 LOGS DE DEBUG DAS VARIÁVEIS
-  console.log('[API] =====================================');
-  console.log('[API] Método:', req.method);
-  console.log('[API] URL:', req.url);
-  console.log('[API] API_KEY disponível:', API_KEY ? `✅ (${API_KEY.substring(0, 10)}...)` : '❌ NÃO');
-  console.log('[API] GOOGLE_SCRIPT_URL:', GOOGLE_SCRIPT_URL ? '✅ Disponível' : '❌ NÃO');
-  console.log('[API] =====================================');
-
-  // 🔒 VALIDAÇÃO CRÍTICA DAS VARIÁVEIS
-  if (!API_KEY || !GOOGLE_SCRIPT_URL) {
-    console.error('[API ERROR] Variáveis de ambiente faltando!');
-    return res.status(500).json({
-      error: 'Configuração do servidor incompleta',
-      details: {
-        API_KEY: !!API_KEY,
-        GOOGLE_SCRIPT_URL: !!GOOGLE_SCRIPT_URL
-      },
-      message: 'Configure API_KEY e GOOGLE_SCRIPT_URL no painel do Vercel',
-      timestamp: new Date().toISOString()
-    });
-  }
+  setValidandoCupom(true);
+  setCupomErro('');
 
   try {
-    const { action } = req.query;
+    const params = {
+      key: 'cce4d5770afe09d2c790dcca4272e1190462a6a574270b040c835889115c6914',
+      action: 'validarCupom',
+      codigo: codigoCupom.trim().toUpperCase(),
+      subtotal: subtotal,
+      tipo_entrega: tipoEntrega
+    };
+    
+    console.log('Enviando dados para API:', params);
 
-    if (!action) {
-      return res.status(400).json({
-        error: 'Parâmetro "action" obrigatório',
-        exemplos: {
-          GET: ['getConfig', 'getCategorias', 'getProdutos', 'getBairros', 'getPedidos', 'getParceiros', 'getCupons'],
-          POST: ['salvarPedido', 'atualizarStatus', 'saveProduct', 'deleteProduct', 'salvarCategoria', 'deletarCategoria', 'validarCupom', 'salvarCupom', 'registrarUsoCupom']
-        }
-      });
-    }
-
-    // 🔵 ROTA GET - ATUALIZADO COM CUPONS
-    if (req.method === 'GET') {
-      // AÇÕES PERMITIDAS GET - ADICIONE getCupons
-      const allowedGetActions = [
-        'getConfig', 'getCategorias', 'getProdutos', 
-        'getBairros', 'getPedidos', 'getParceiros',
-        'getCupons' // 👈 NOVA AÇÃO ADICIONADA
-      ];
-      
-      if (!allowedGetActions.includes(action)) {
-        return res.status(400).json({
-          error: 'Ação GET não permitida',
-          acoes_permitidas: allowedGetActions
-        });
-      }
-
-      // URL do Google Script
-      const url = `${GOOGLE_SCRIPT_URL}?action=${encodeURIComponent(action)}&key=${API_KEY}`;
-      console.log(`[GET ${action}] Fetching: ${url.replace(API_KEY, '***')}`);
-
-      try {
-        const response = await fetch(url, {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json'
-          }
-        });
-
-        const responseText = await response.text();
-        
-        console.log(`[GET ${action}] Status: ${response.status}, Length: ${responseText.length} chars`);
-        
-        if (!response.ok) {
-          console.error(`[GET ${action} ERROR] Response:`, responseText.substring(0, 500));
-          return res.status(response.status).json({
-            error: 'Erro do Google Script',
-            message: responseText.substring(0, 200),
-            action: action
-          });
-        }
-
-        // Parse do JSON
-        let data;
-        try {
-          data = JSON.parse(responseText);
-          console.log(`[GET ${action} SUCCESS] Tipo:`, Array.isArray(data) ? 'Array' : 'Object');
-          
-          // Log para debug do conteúdo
-          if (action === 'getConfig') {
-            console.log(`[GET ${action}] Configurações:`, data);
-          } else if (action === 'getCupons') {
-            console.log(`[GET ${action}] Cupons retornados:`, data.cupons?.length || 0);
-          } else if (Array.isArray(data)) {
-            console.log(`[GET ${action}] Retornando ${data.length} itens`);
-          }
-        } catch (jsonError) {
-          console.error(`[GET ${action} JSON ERROR]:`, jsonError.message);
-          console.error(`[GET ${action} RAW RESPONSE]:`, responseText.substring(0, 500));
-          
-          // Se não conseguir parsear, retornar resposta padrão
-          if (action === 'getConfig') {
-            data = {
-              telefone_whatsapp: '',
-              moeda: 'R$',
-              nome_loja: 'Loja',
-              pedido_minimo_entrega: 0,
-              mensagem_retirada: 'Pedido disponível para retirada em 20 minutos'
-            };
-          } else if (action === 'getCupons') {
-            data = { cupons: [] };
-          } else {
-            data = [];
-          }
-        }
-
-        // ⭐⭐ APENAS para getPedidos e getCupons, ajuste de formato
-        if (action === 'getPedidos' && data && data.pedidos !== undefined) {
-          console.log('[GET Pedidos] Convertendo de {pedidos: []} para []');
-          data = data.pedidos;
-        }
-        
-        // Para getCupons, mantenha o formato { cupons: [] }
-        if (action === 'getCupons' && data && !data.cupons) {
-          console.log('[GET Cupons] Padronizando formato para { cupons: [] }');
-          data = { cupons: Array.isArray(data) ? data : [] };
-        }
-
-        // Retorna os dados diretamente
-        return res.json(data);
-
-      } catch (fetchError) {
-        console.error(`[GET ${action} FETCH ERROR]:`, fetchError.message);
-        
-        // Retornar resposta segura em caso de erro
-        if (action === 'getConfig') {
-          return res.json({
-            telefone_whatsapp: '',
-            moeda: 'R$',
-            nome_loja: 'Loja',
-            pedido_minimo_entrega: 0,
-            mensagem_retirada: 'Pedido disponível para retirada em 20 minutos'
-          });
-        } else if (action === 'getCupons') {
-          return res.json({ cupons: [] });
-        } else {
-          return res.json([]);
-        }
-      }
-    }
-
-    // 🔴 ROTA POST - ATUALIZADO COM AÇÕES DE CUPOM
-    if (req.method === 'POST') {
-      console.log(`[POST] Ação: ${action}, Body:`, req.body);
-
-      // AÇÕES PERMITIDAS POST - ADICIONE as 3 novas ações de cupom
-      const allowedPostActions = [
-        'salvarPedido', 'atualizarStatus', 'saveProduct',
-        'deleteProduct', 'salvarCategoria', 'deletarCategoria',
-        'validarCupom', 'salvarCupom', 'registrarUsoCupom' // 👈 NOVAS AÇÕES ADICIONADAS
-      ];
-      
-      if (!allowedPostActions.includes(action)) {
-        return res.status(400).json({
-          error: 'Ação POST não permitida',
-          acoes_permitidas: allowedPostActions
-        });
-      }
-
-      // URL do Google Script
-      const url = `${GOOGLE_SCRIPT_URL}?action=${action}&key=${API_KEY}`;
-
-      console.log(`[POST] Enviando para: ${url}`);
-      console.log(`[POST] Body detalhado:`, JSON.stringify(req.body, null, 2));
-
-      // Validações específicas por ação - ADICIONE para cupons
-      if (action === 'saveProduct') {
-        console.log('[PRODUTO] Operação:', req.body.id ? `UPDATE (id: ${req.body.id})` : 'INSERT');
-        console.log('[PRODUTO] Campos:', {
-          id: req.body.id || 'novo',
-          nome: req.body.nome,
-          categoria_id: req.body.categoria_id,
-          preco: req.body.preco,
-          disponivel: req.body.disponivel
-        });
-      }
-
-      if (action === 'deleteProduct') {
-        console.log('[PRODUTO DELETE] ID:', req.body.id);
-      }
-
-      if (action === 'salvarCategoria') {
-        console.log('[CATEGORIA] Operação:', req.body.id ? `UPDATE (id: ${req.body.id})` : 'INSERT');
-        console.log('[CATEGORIA] Campos:', {
-          id: req.body.id || 'novo',
-          nome: req.body.nome,
-          posicao: req.body.posicao,
-          visivel: req.body.visivel,
-          icone_svg: req.body.icone_svg
-        });
-      }
-
-      if (action === 'deletarCategoria') {
-        console.log('[CATEGORIA DELETE] ID:', req.body.id);
-      }
-
-      // Validações para ações de cupom
-      if (action === 'validarCupom') {
-        console.log('[CUPOM VALIDAR] Dados:', {
-          codigo: req.body.codigo,
-          subtotal: req.body.subtotal,
-          tipo_entrega: req.body.tipo_entrega // opcional para validação específica
-        });
-      }
-
-      if (action === 'salvarCupom') {
-        console.log('[CUPOM SALVAR] Operação:', req.body.código ? `UPDATE (${req.body.código})` : 'INSERT');
-        console.log('[CUPOM SALVAR] Campos:', {
-          código: req.body.código || 'novo',
-          tipo_desconto: req.body.tipo_desconto,
-          valor_desconto: req.body.valor_desconto,
-          data_validade: req.body.data_validade,
-          uso_maximo: req.body.uso_maximo,
-          status: req.body.status
-        });
-      }
-
-      if (action === 'registrarUsoCupom') {
-        console.log('[CUPOM REGISTRAR USO] Código:', req.body.codigo);
-      }
-
-      // ⭐⭐ CORREÇÃO CRÍTICA: O Google Apps Script espera que o body seja uma STRING JSON
-      const bodyString = JSON.stringify(req.body);
-      
-      console.log(`[POST DEBUG] Enviando como string JSON:`, {
-        length: bodyString.length,
-        preview: bodyString.substring(0, 200)
-      });
-
-      // DEBUG EXTRA: Log da URL completa
-      console.log(`[POST DEBUG] URL completa: ${url}`);
-      console.log(`[POST DEBUG] API Key usada: ${API_KEY.substring(0, 10)}...`);
-
-      const response = await fetch(url, {
-        method: 'POST',
-        redirect: 'follow',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'User-Agent': 'Mozilla/5.0'
-        },
-        body: bodyString
-      });
-
-      const responseText = await response.text();
-
-      console.log(`[POST Response - ${action}] Status: ${response.status}`);
-      console.log(`[POST Response - ${action}] Body (primeiros 1000 chars):`, responseText.substring(0, 1000));
-      
-      if (!response.ok) {
-        console.error(`[POST ERROR - ${action}] Status ${response.status}:`, responseText.substring(0, 500));
-        throw new Error(`Google Script returned ${response.status}: ${responseText.substring(0, 200)}`);
-      }
-
-      let result;
-      try {
-        result = JSON.parse(responseText);
-      } catch (jsonError) {
-        console.error(`[POST JSON Parse Error - ${action}]:`, responseText);
-        // Se não conseguir parsear, retornar o texto cru para debug
-        return res.status(200).json({
-          rawResponse: responseText,
-          warning: 'Could not parse as JSON',
-          length: responseText.length
-        });
-      }
-
-      console.log(`[POST SUCCESS - ${action}]:`, {
-        success: result.success,
-        message: result.message,
-        error: result.error,
-        // Logs específicos para cupom
-        ...(action === 'validarCupom' && {
-          valido: result.valido,
-          valor_calculado: result.valor_calculado
-        })
-      });
-
-      return res.status(200).json(result);
-    }
-
-    // Método não permitido
-    return res.status(405).json({
-      error: 'Método não permitido',
-      allowed: ['GET', 'POST', 'OPTIONS']
+    const resposta = await fetch('/api', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(params)
     });
 
+    console.log('Status da resposta:', resposta.status);
+    
+    if (!resposta.ok) {
+      throw new Error(`HTTP error! status: ${resposta.status}`);
+    }
+
+    const resultado = await resposta.json();
+    
+    console.log('Resposta cupom:', resultado);
+    
+    if (resultado.valido) {
+      setCupomValido(resultado);
+      setCupomAplicado(true);
+      setCupomErro('');
+    } else {
+      setCupomValido(null);
+      setCupomAplicado(false);
+      setCupomErro(resultado.mensagem || 'Cupom inválido');
+    }
   } catch (error) {
-    console.error('[API FATAL ERROR]:', error.message);
-    console.error('[API Stack Trace]:', error.stack);
-
-    return res.status(500).json({
-      error: 'Erro interno do servidor',
-      message: error.message,
-      action: req.query.action || 'unknown',
-      timestamp: new Date().toISOString(),
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    });
+    console.error('Erro ao validar cupom:', error);
+    setCupomErro('Erro ao validar cupom. Tente novamente.');
+    setCupomValido(null);
+    setCupomAplicado(false);
+  } finally {
+    setValidandoCupom(false);
   }
-}
+};
