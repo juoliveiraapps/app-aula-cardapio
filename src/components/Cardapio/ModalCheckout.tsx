@@ -75,69 +75,52 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
   const totalItens = itens.reduce((total, item) => total + item.quantidade, 0);
 
   // Função para validar cupom
-  const validarCupomFrontend = async () => {
-    if (!codigoCupom.trim()) {
-      setCupomErro('Digite um código de cupom');
-      return;
-    }
+const validarCupomFrontend = async () => {
+  if (!codigoCupom.trim()) {
+    setCupomErro('Digite um código de cupom');
+    return;
+  }
 
-    setValidandoCupom(true);
-    setCupomErro('');
+  setValidandoCupom(true);
+  setCupomErro('');
 
-    try {
-      const resposta = await fetch('/api', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          key: 'cce4d5770afe09d2c790dcca4272e1190462a6a574270b040c835889115c6914', // Use sua API key
-          action: 'validarCupom',
-          codigo: codigoCupom.trim().toUpperCase(),
-          subtotal: subtotal.toString()
-        })
-      });
+  try {
+    const resposta = await fetch('/api', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        key: 'cce4d5770afe09d2c790dcca4272e1190462a6a574270b040c835889115c6914',
+        action: 'validarCupom',
+        codigo: codigoCupom.trim().toUpperCase(),
+        subtotal: subtotal.toString(),
+        tipo_entrega: tipoEntrega // ← ADICIONE ESTA LINHA
+      })
+    });
 
-      const resultado = await resposta.json();
-      
-      if (resultado.valido) {
-        setCupomValido(resultado);
-        setCupomAplicado(true);
-        setCupomErro('');
-        
-        // Verificar se o cupom é específico para retirada ou delivery
-        const cupomData = resultado.cupom || {};
-        const cupomInfo = cupomData.cupom_info || '';
-        
-        if (cupomInfo.includes('apenas_retirada') && tipoEntrega !== 'retirada') {
-          setCupomErro('Este cupom é válido apenas para retirada no local');
-          setCupomValido(null);
-          setCupomAplicado(false);
-          return;
-        }
-        
-        if (cupomInfo.includes('apenas_delivery') && tipoEntrega !== 'delivery') {
-          setCupomErro('Este cupom é válido apenas para delivery');
-          setCupomValido(null);
-          setCupomAplicado(false);
-          return;
-        }
-        
-      } else {
-        setCupomValido(null);
-        setCupomAplicado(false);
-        setCupomErro(resultado.mensagem || 'Cupom inválido');
-      }
-    } catch (error) {
-      console.error('Erro ao validar cupom:', error);
-      setCupomErro('Erro ao validar cupom. Tente novamente.');
+    const resultado = await resposta.json();
+    
+    console.log('Resposta cupom:', resultado); // Para debug
+    
+    if (resultado.valido) {
+      setCupomValido(resultado);
+      setCupomAplicado(true);
+      setCupomErro('');
+    } else {
       setCupomValido(null);
       setCupomAplicado(false);
-    } finally {
-      setValidandoCupom(false);
+      setCupomErro(resultado.mensagem || 'Cupom inválido');
     }
-  };
-
+  } catch (error) {
+    console.error('Erro ao validar cupom:', error);
+    setCupomErro('Erro ao validar cupom. Tente novamente.');
+    setCupomValido(null);
+    setCupomAplicado(false);
+  } finally {
+    setValidandoCupom(false);
+  }
+};
   // Remover cupom
   const removerCupom = () => {
     setCodigoCupom('');
@@ -446,47 +429,50 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
   };
 
   // Função para finalizar pedido (retirada e delivery)
-  const handleFinalizarOutrosTipos = async () => {
-    if (!nome || !telefone) {
-      alert('Por favor, preencha seu nome e telefone.');
-      return;
-    }
+ const handleFinalizarOutrosTipos = async () => {
+  if (!nome || !telefone) {
+    alert('Por favor, preencha seu nome e telefone.');
+    return;
+  }
 
-    if (tipoEntrega === 'delivery' && (!cepValido || !endereco || !numero || !bairro || !cidade)) {
-      alert('Por favor, preencha todos os campos obrigatórios do endereço.');
-      return;
-    }
+  if (tipoEntrega === 'delivery' && (!cepValido || !endereco || !numero || !bairro || !cidade)) {
+    alert('Por favor, preencha todos os campos obrigatórios do endereço.');
+    return;
+  }
 
-    if (tipoEntrega === 'delivery' && taxaEntrega === 0) {
-      alert('Não atendemos este bairro. Por favor, verifique o endereço ou escolha retirada.');
-      return;
-    }
+  if (tipoEntrega === 'delivery' && taxaEntrega === 0) {
+    alert('Não atendemos este bairro. Por favor, verifique o endereço ou escolha retirada.');
+    return;
+  }
 
-    try {
-      const dadosPedido = {
-        nome,
-        telefone,
-        ...(tipoEntrega === 'delivery' && {
-          endereco,
-          numero,
-          complemento,
-          bairro,
-          cidade,
-          referencia,
-          taxa_entrega: taxaEntrega
-        }),
-        observacoes,
-        formaPagamento,
-        querWhatsApp,
-        codigo_cupom: cupomAplicado ? codigoCupom.trim().toUpperCase() : ''
-      };
-      
-      const resposta = await onFinalizarPedido(dadosPedido);
-      handleRespostaPedido(resposta);
-    } catch (error) {
-      console.error('Erro ao finalizar pedido:', error);
-    }
-  };
+  try {
+    const dadosPedido = {
+      nome,
+      telefone,
+      tipo: tipoEntrega, 
+      tipo_entrega: tipoEntrega, 
+      ...(tipoEntrega === 'delivery' && {
+        endereco,
+        numero,
+        complemento,
+        bairro,
+        cidade,
+        referencia,
+        taxa_entrega: taxaEntrega
+      }),
+      observacoes,
+      formaPagamento,
+      querWhatsApp,
+      codigo_cupom: cupomAplicado ? codigoCupom.trim().toUpperCase() : '',
+      subtotal: subtotal 
+    };
+    
+    const resposta = await onFinalizarPedido(dadosPedido);
+    handleRespostaPedido(resposta);
+  } catch (error) {
+    console.error('Erro ao finalizar pedido:', error);
+  }
+};
 
   const handleConfirmarPedidoLocal = async () => {
     try {
