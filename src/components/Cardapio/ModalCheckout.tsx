@@ -25,6 +25,7 @@ interface ModalCheckoutProps {
     comanda?: string;
     querWhatsApp?: boolean;
     taxa_entrega?: number;
+    codigo_cupom?: string;
   }) => Promise<any>;
 }
 
@@ -55,14 +56,95 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
   const [mostrarModalConfirmacao, setMostrarModalConfirmacao] = useState(false);
   const [querWhatsApp, setQuerWhatsApp] = useState(true);
   
+  // Estados para cupom
+  const [codigoCupom, setCodigoCupom] = useState('');
+  const [validandoCupom, setValidandoCupom] = useState(false);
+  const [cupomValido, setCupomValido] = useState<any>(null);
+  const [cupomErro, setCupomErro] = useState('');
+  const [cupomAplicado, setCupomAplicado] = useState(false);
+  
   // Estados para taxa dinâmica
   const [taxaEntrega, setTaxaEntrega] = useState(5);
   const [bairrosCadastrados, setBairrosCadastrados] = useState<any[]>([]);
   const [tempoEntrega, setTempoEntrega] = useState('30-40 minutos');
 
   const subtotal = itens.reduce((total, item) => total + item.precoTotal, 0);
-  const total = subtotal + (tipoEntrega === 'delivery' ? taxaEntrega : 0);
+  const descontoCupom = cupomValido ? cupomValido.valor_calculado || 0 : 0;
+  const subtotalComDesconto = Math.max(0, subtotal - descontoCupom);
+  const total = subtotalComDesconto + (tipoEntrega === 'delivery' ? taxaEntrega : 0);
   const totalItens = itens.reduce((total, item) => total + item.quantidade, 0);
+
+  // Função para validar cupom
+  const validarCupomFrontend = async () => {
+    if (!codigoCupom.trim()) {
+      setCupomErro('Digite um código de cupom');
+      return;
+    }
+
+    setValidandoCupom(true);
+    setCupomErro('');
+
+    try {
+      const resposta = await fetch('/api', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          key: 'cce4d5770afe09d2c790dcca4272e1190462a6a574270b040c835889115c6914', // Use sua API key
+          action: 'validarCupom',
+          codigo: codigoCupom.trim().toUpperCase(),
+          subtotal: subtotal.toString()
+        })
+      });
+
+      const resultado = await resposta.json();
+      
+      if (resultado.valido) {
+        setCupomValido(resultado);
+        setCupomAplicado(true);
+        setCupomErro('');
+        
+        // Verificar se o cupom é específico para retirada ou delivery
+        const cupomData = resultado.cupom || {};
+        const cupomInfo = cupomData.cupom_info || '';
+        
+        if (cupomInfo.includes('apenas_retirada') && tipoEntrega !== 'retirada') {
+          setCupomErro('Este cupom é válido apenas para retirada no local');
+          setCupomValido(null);
+          setCupomAplicado(false);
+          return;
+        }
+        
+        if (cupomInfo.includes('apenas_delivery') && tipoEntrega !== 'delivery') {
+          setCupomErro('Este cupom é válido apenas para delivery');
+          setCupomValido(null);
+          setCupomAplicado(false);
+          return;
+        }
+        
+      } else {
+        setCupomValido(null);
+        setCupomAplicado(false);
+        setCupomErro(resultado.mensagem || 'Cupom inválido');
+      }
+    } catch (error) {
+      console.error('Erro ao validar cupom:', error);
+      setCupomErro('Erro ao validar cupom. Tente novamente.');
+      setCupomValido(null);
+      setCupomAplicado(false);
+    } finally {
+      setValidandoCupom(false);
+    }
+  };
+
+  // Remover cupom
+  const removerCupom = () => {
+    setCodigoCupom('');
+    setCupomValido(null);
+    setCupomAplicado(false);
+    setCupomErro('');
+  };
 
   // Função para buscar bairros da planilha
   const buscarBairrosDaPlanilha = async () => {
@@ -87,7 +169,6 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
       return;
     }
     
-    // Normalizar o nome do bairro para comparação
     const normalizarTexto = (texto: string) => {
       return texto
         .toLowerCase()
@@ -103,7 +184,6 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
       
       const bairroCadastradoNormalizado = normalizarTexto(b.Bairro.toString());
       
-      // Verifica se é igual ou se contém
       const matchExato = bairroCadastradoNormalizado === bairroNormalizado;
       const matchContem = bairroCadastradoNormalizado.includes(bairroNormalizado) || 
                          bairroNormalizado.includes(bairroCadastradoNormalizado);
@@ -115,20 +195,17 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
       console.log('✅ Bairro encontrado:', bairroEncontrado.Bairro, 'Taxa:', bairroEncontrado.taxa_entrega);
       setTaxaEntrega(parseFloat(bairroEncontrado.taxa_entrega) || 5);
       
-      // Formatar tempo de entrega
       const tempoMin = parseInt(bairroEncontrado.tempo_min) || 30;
       const tempoMax = parseInt(bairroEncontrado.tempo_max) || 40;
       setTempoEntrega(`${tempoMin}-${tempoMax} minutos`);
     } else {
       console.log('❌ Bairro NÃO encontrado:', nomeBairro);
       
-      // Tentar fallback: buscar por partes do nome
       const palavrasBairro = bairroNormalizado.split(' ');
       const bairroFallback = bairrosCadastrados.find(b => {
         if (!b.Bairro || b.ativo === false) return false;
         const bairroCad = normalizarTexto(b.Bairro.toString());
         
-        // Verificar se alguma palavra do bairro digitado existe no bairro cadastrado
         return palavrasBairro.some(palavra => 
           palavra.length > 3 && bairroCad.includes(palavra)
         );
@@ -141,7 +218,6 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
         const tempoMax = parseInt(bairroFallback.tempo_max) || 40;
         setTempoEntrega(`${tempoMin}-${tempoMax} minutos`);
       } else {
-        // Não encontrado mesmo com fallback
         setTaxaEntrega(0);
         setTempoEntrega('Não atendemos este bairro');
       }
@@ -169,7 +245,6 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
           setCidade(data.localidade || '');
           setCepValido(true);
           
-          // Calcular taxa quando encontrar bairro
           if (data.bairro) {
             calcularTaxaPorBairro(data.bairro);
           }
@@ -237,6 +312,12 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
         setTaxaEntrega(5);
         setTempoEntrega('30-40 minutos');
         setMostrarModalConfirmacao(false);
+        
+        // Resetar cupom
+        setCodigoCupom('');
+        setCupomValido(null);
+        setCupomAplicado(false);
+        setCupomErro('');
       }
     }
   }, [isOpen, tipoEntrega, comandaNumero]);
@@ -283,16 +364,34 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
       mensagem += `🏷️ *Comanda:* #${comandaNumero}\n`;
     }
     
+    // Adicionar informação do cupom se aplicado
+    if (cupomValido && cupomAplicado) {
+      mensagem += `🎫 *Cupom:* ${cupomValido.codigo}\n`;
+      mensagem += `💸 *Desconto:* R$ ${cupomValido.valor_calculado?.toFixed(2) || '0.00'}\n`;
+    }
+    
     mensagem += `\n*ITENS:*\n`;
     itens.forEach((item) => {
       const opcoesFormatadas = formatarOpcoesItem(item);
       mensagem += `${item.quantidade}x ${item.produto.nome}${opcoesFormatadas} - R$ ${item.precoTotal.toFixed(2)}\n`;
     });
     
-    mensagem += `\n*TOTAL: R$ ${total.toFixed(2)}*\n`;
+    mensagem += `\n*RESUMO FINANCEIRO:*\n`;
+    mensagem += `Subtotal: R$ ${subtotal.toFixed(2)}\n`;
+    
+    if (cupomValido && cupomAplicado) {
+      mensagem += `Desconto: -R$ ${cupomValido.valor_calculado?.toFixed(2) || '0.00'}\n`;
+      mensagem += `Subtotal com desconto: R$ ${subtotalComDesconto.toFixed(2)}\n`;
+    }
+    
+    if (tipoEntrega === 'delivery') {
+      mensagem += `Taxa entrega: R$ ${taxaEntrega.toFixed(2)}\n`;
+    }
+    
+    mensagem += `*TOTAL: R$ ${total.toFixed(2)}*\n`;
     mensagem += `💳 *Pagamento:* ${
       formaPagamento === 'dinheiro' ? 'Dinheiro' : 
-      formaPagamento === 'cartao' ? 'Cartão' : 'PIX'
+      formaPagamento === 'cartao' ? 'Cartão na entrega/retirada' : 'PIX'
     }\n`;
     
     if (observacoes) {
@@ -307,10 +406,7 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
     if (resposta.success) {
       console.log('✅ Pedido salvo, ID:', resposta.pedido_id);
       
-      // Gerar mensagem
       const mensagemPedido = gerarMensagemPedido(resposta.pedido_id);
-      
-      // Pegar telefone do estabelecimento (da config)
       const telefoneEstabelecimento = config?.telefone_whatsapp || '';
       
       console.log('📱 Config WhatsApp:', {
@@ -319,11 +415,9 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
         querWhatsApp: querWhatsApp
       });
       
-      // Verificar se deve abrir WhatsApp
       if (querWhatsApp && telefoneEstabelecimento) {
         console.log('🔄 Preparando para abrir WhatsApp...');
         
-        // Pequeno delay para garantir visual feedback
         setTimeout(() => {
           try {
             const resultado = enviarParaWhatsApp(
@@ -334,7 +428,6 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
             
             if (!resultado.sucesso) {
               console.warn('⚠️ WhatsApp não abriu automaticamente');
-              // Opcional: mostrar link para usuário
               if (confirm('WhatsApp não abriu automaticamente. Deseja copiar o link?')) {
                 navigator.clipboard.writeText(resultado.url);
                 alert('Link copiado! Cole no WhatsApp.');
@@ -348,7 +441,6 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
         console.log('ℹ️ WhatsApp não solicitado ou telefone não configurado');
       }
       
-      // Fechar modal após sucesso
       onClose();
     }
   };
@@ -385,7 +477,8 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
         }),
         observacoes,
         formaPagamento,
-        querWhatsApp
+        querWhatsApp,
+        codigo_cupom: cupomAplicado ? codigoCupom.trim().toUpperCase() : ''
       };
       
       const resposta = await onFinalizarPedido(dadosPedido);
@@ -415,7 +508,6 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
     return (
       <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[70] p-4">
         <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col">
-          {/* Header */}
           <div className="bg-[#e58840] text-[#400b0b] p-6 text-center shadow-md">
             <h2 className="text-2xl font-bold">Confirmar Pedido</h2>
             <p className="text-[#400b0b]/80 mt-1">
@@ -423,7 +515,6 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
             </p>
           </div>
 
-          {/* Conteúdo */}
           <div className="flex-1 overflow-y-auto p-6">
             <div className="text-center mb-6">
               <div className="w-16 h-16 bg-[#e58840]/20 text-[#400b0b] rounded-full flex items-center justify-center mx-auto mb-4">
@@ -438,7 +529,6 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
                 Seu pedido será enviado para a cozinha e servido na sua mesa.
               </p>
 
-              {/* Resumo do Pedido */}
               <div className="bg-[#e58840]/5 rounded-xl p-4 mb-6 text-left border border-[#400b0b]/10">
                 <h4 className="font-bold text-[#400b0b] mb-3">Resumo do Pedido</h4>
                 <div className="space-y-3">
@@ -467,7 +557,6 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
                 </div>
               </div>
 
-              {/* Observações (opcional) */}
               <div className="mb-6 text-left">
                 <label className="block text-sm font-medium text-[#400b0b] mb-2">
                   Observações (opcional)
@@ -483,7 +572,6 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
             </div>
           </div>
 
-          {/* Footer */}
           <div className="p-6 border-t border-[#400b0b]/10 flex gap-3">
             <button
               onClick={() => setMostrarModalConfirmacao(false)}
@@ -524,7 +612,6 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[70] p-4">
       <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col">
-        {/* Header */}
         <div className="bg-[#e58840] text-[#400b0b] p-4 text-center relative shadow-md">
           <h2 className="text-xl font-bold">Finalizar Pedido</h2>
           <p className="text-[#400b0b]/80 text-sm">
@@ -540,7 +627,6 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
           </button>
         </div>
 
-        {/* Conteúdo */}
         <div className="flex-1 overflow-y-auto p-4">
           {/* INFO DO TIPO DE ENTREGA */}
           <div className="mb-6">
@@ -587,7 +673,6 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
                       : 'Entregaremos no seu endereço'}
                   </p>
                   
-                  {/* Mostrar número da comanda se for consumo local */}
                   {tipoEntrega === 'local' && comandaNumero && (
                     <div className="mt-2 flex items-center">
                       <span className="text-xs font-medium bg-[#e58840] text-[#400b0b] px-2 py-1 rounded">
@@ -599,7 +684,6 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
                     </div>
                   )}
                   
-                  {/* Mostrar tempo estimado */}
                   <p className="text-xs text-[#400b0b]/60 mt-2 flex items-center">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -614,6 +698,83 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
               </div>
             </div>
           </div>
+
+          {/* CUPOM DE DESCONTO - APENAS PARA RETIRADA E DELIVERY */}
+          {(tipoEntrega === 'retirada' || tipoEntrega === 'delivery') && (
+            <div className="mb-6">
+              <h3 className="font-bold text-[#400b0b] mb-3">Cupom de Desconto</h3>
+              
+              {!cupomAplicado ? (
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={codigoCupom}
+                      onChange={(e) => setCodigoCupom(e.target.value.toUpperCase())}
+                      placeholder="Digite o código do cupom"
+                      disabled={validandoCupom || enviando}
+                      className="flex-1 p-3 border border-[#400b0b]/20 rounded-lg focus:ring-2 focus:ring-[#e58840] focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed text-[#400b0b]"
+                    />
+                    <button
+                      onClick={validarCupomFrontend}
+                      disabled={!codigoCupom.trim() || validandoCupom || enviando}
+                      className={`bg-[#e58840] text-[#400b0b] px-4 rounded-lg font-medium transition-all duration-300 disabled:bg-gray-300 disabled:cursor-not-allowed ${
+                        codigoCupom.trim() && !validandoCupom ? 'hover:bg-[#e58840]/90' : ''
+                      }`}
+                    >
+                      {validandoCupom ? (
+                        <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                      ) : 'Aplicar'}
+                    </button>
+                  </div>
+                  
+                  {cupomErro && (
+                    <p className="text-sm text-red-600 flex items-center mt-1">
+                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      {cupomErro}
+                    </p>
+                  )}
+                  
+                  <p className="text-xs text-[#400b0b]/60 mt-1">
+                    Cupons válidos apenas para {tipoEntrega === 'retirada' ? 'retirada' : 'delivery'}.
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <div className="w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center mr-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-green-800">Cupom Aplicado!</h4>
+                        <p className="text-sm text-green-600">
+                          {cupomValido?.mensagem || `Código: ${codigoCupom}`}
+                        </p>
+                        <p className="text-xs text-green-500 mt-1">
+                          Desconto de R$ {cupomValido?.valor_calculado?.toFixed(2) || '0.00'}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={removerCupom}
+                      className="text-red-500 hover:text-red-700 text-sm font-medium"
+                      disabled={enviando}
+                    >
+                      Remover
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Resumo do Pedido */}
           <div className="mb-6 bg-[#e58840]/5 rounded-xl p-4 border border-[#400b0b]/10">
@@ -728,17 +889,16 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
                         </button>
                       </div>
                       {buscandoCep && <p className="text-xs text-[#400b0b]/60 mt-1">Buscando endereço...</p>}
-                    
-               {/* ⭐⭐ MENSAGEM DE ERRO DO CEP */}
-  {!buscandoCep && cep.length === 8 && !cepValido && (
-    <p className="text-sm text-red-600 mt-1 flex items-center">
-      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-      CEP não encontrado. Digite outro ou preencha manualmente.
-    </p>
-  )}
-</div>
+                      
+                      {!buscandoCep && cep.length === 8 && !cepValido && (
+                        <p className="text-sm text-red-600 mt-1 flex items-center">
+                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          CEP não encontrado. Digite outro ou preencha manualmente.
+                        </p>
+                      )}
+                    </div>
 
                     {/* Campos de endereço só aparecem após CEP válido */}
                     {cepValido && (
@@ -801,7 +961,6 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
                             disabled={enviando}
                             className="w-full p-3 border border-[#400b0b]/20 rounded-lg focus:ring-2 focus:ring-[#e58840] focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed text-[#400b0b]"
                           />
-                          {/* Mostrar se bairro é atendido */}
                           {taxaEntrega === 0 && (
                             <p className="text-sm text-red-600 mt-1">
                               ⚠️ Não atendemos este bairro
@@ -985,6 +1144,21 @@ export const ModalCheckout: React.FC<ModalCheckoutProps> = ({
                 <span>Subtotal ({totalItens} itens):</span>
                 <span>{subtotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
               </div>
+              
+              {/* Cupom de desconto */}
+              {cupomAplicado && (
+                <div className="flex justify-between text-sm text-green-600">
+                  <span>Desconto cupom ({cupomValido?.codigo}):</span>
+                  <span>- R$ {cupomValido?.valor_calculado?.toFixed(2) || '0.00'}</span>
+                </div>
+              )}
+              
+              {cupomAplicado && (
+                <div className="flex justify-between text-sm text-[#400b0b]">
+                  <span>Subtotal com desconto:</span>
+                  <span>{subtotalComDesconto.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                </div>
+              )}
               
               {tipoEntrega === 'delivery' && (
                 <div className="flex justify-between text-sm text-[#400b0b]">
