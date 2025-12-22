@@ -42,123 +42,131 @@ export default async function handler(req, res) {
       return res.status(400).json({
         error: 'Parâmetro "action" obrigatório',
         exemplos: {
-          GET: ['getConfig', 'getCategorias', 'getProdutos', 'getBairros', 'getPedidos', 'getParceiros'],
-          POST: ['salvarPedido', 'atualizarStatus', 'saveProduct', 'deleteProduct', 'salvarCategoria', 'deletarCategoria']
+          GET: ['getConfig', 'getCategorias', 'getProdutos', 'getBairros', 'getPedidos', 'getParceiros', 'getCupons'],
+          POST: ['salvarPedido', 'atualizarStatus', 'saveProduct', 'deleteProduct', 'salvarCategoria', 'deletarCategoria', 'validarCupom', 'salvarCupom', 'registrarUsoCupom']
         }
       });
     }
 
- // 🔵 ROTA GET - CORREÇÃO SIMPLIFICADA
-if (req.method === 'GET') {
-  // AÇÕES PERMITIDAS GET
-  const allowedGetActions = [
-    'getConfig', 'getCategorias', 'getProdutos', 
-    'getBairros', 'getPedidos', 'getParceiros'
-  ];
-  
-  if (!allowedGetActions.includes(action)) {
-    return res.status(400).json({
-      error: 'Ação GET não permitida',
-      acoes_permitidas: allowedGetActions
-    });
-  }
-
-  // URL do Google Script
-  const url = `${GOOGLE_SCRIPT_URL}?action=${encodeURIComponent(action)}&key=${API_KEY}`;
-  console.log(`[GET ${action}] Fetching: ${url.replace(API_KEY, '***')}`);
-
-  try {
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json'
-      }
-    });
-
-    const responseText = await response.text();
-    
-    console.log(`[GET ${action}] Status: ${response.status}, Length: ${responseText.length} chars`);
-    
-    if (!response.ok) {
-      console.error(`[GET ${action} ERROR] Response:`, responseText.substring(0, 500));
-      return res.status(response.status).json({
-        error: 'Erro do Google Script',
-        message: responseText.substring(0, 200),
-        action: action
-      });
-    }
-
-    // ⭐⭐ CORREÇÃO CRÍTICA: Parse simples do JSON
-    let data;
-    try {
-      data = JSON.parse(responseText);
-      console.log(`[GET ${action} SUCCESS] Tipo:`, Array.isArray(data) ? 'Array' : 'Object');
+    // 🔵 ROTA GET - ATUALIZADO COM CUPONS
+    if (req.method === 'GET') {
+      // AÇÕES PERMITIDAS GET - ADICIONE getCupons
+      const allowedGetActions = [
+        'getConfig', 'getCategorias', 'getProdutos', 
+        'getBairros', 'getPedidos', 'getParceiros',
+        'getCupons' // 👈 NOVA AÇÃO ADICIONADA
+      ];
       
-      // Log para debug do conteúdo
-      if (action === 'getConfig') {
-        console.log(`[GET ${action}] Configurações:`, data);
-      } else if (Array.isArray(data)) {
-        console.log(`[GET ${action}] Retornando ${data.length} itens`);
+      if (!allowedGetActions.includes(action)) {
+        return res.status(400).json({
+          error: 'Ação GET não permitida',
+          acoes_permitidas: allowedGetActions
+        });
       }
-    } catch (jsonError) {
-      console.error(`[GET ${action} JSON ERROR]:`, jsonError.message);
-      console.error(`[GET ${action} RAW RESPONSE]:`, responseText.substring(0, 500));
-      
-      // Se não conseguir parsear, retornar resposta padrão
-      if (action === 'getConfig') {
-        data = {
-          telefone_whatsapp: '',
-          moeda: 'R$',
-          nome_loja: 'Loja',
-          pedido_minimo_entrega: 0,
-          mensagem_retirada: 'Pedido disponível para retirada em 20 minutos'
-        };
-      } else {
-        data = [];
+
+      // URL do Google Script
+      const url = `${GOOGLE_SCRIPT_URL}?action=${encodeURIComponent(action)}&key=${API_KEY}`;
+      console.log(`[GET ${action}] Fetching: ${url.replace(API_KEY, '***')}`);
+
+      try {
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+
+        const responseText = await response.text();
+        
+        console.log(`[GET ${action}] Status: ${response.status}, Length: ${responseText.length} chars`);
+        
+        if (!response.ok) {
+          console.error(`[GET ${action} ERROR] Response:`, responseText.substring(0, 500));
+          return res.status(response.status).json({
+            error: 'Erro do Google Script',
+            message: responseText.substring(0, 200),
+            action: action
+          });
+        }
+
+        // Parse do JSON
+        let data;
+        try {
+          data = JSON.parse(responseText);
+          console.log(`[GET ${action} SUCCESS] Tipo:`, Array.isArray(data) ? 'Array' : 'Object');
+          
+          // Log para debug do conteúdo
+          if (action === 'getConfig') {
+            console.log(`[GET ${action}] Configurações:`, data);
+          } else if (action === 'getCupons') {
+            console.log(`[GET ${action}] Cupons retornados:`, data.cupons?.length || 0);
+          } else if (Array.isArray(data)) {
+            console.log(`[GET ${action}] Retornando ${data.length} itens`);
+          }
+        } catch (jsonError) {
+          console.error(`[GET ${action} JSON ERROR]:`, jsonError.message);
+          console.error(`[GET ${action} RAW RESPONSE]:`, responseText.substring(0, 500));
+          
+          // Se não conseguir parsear, retornar resposta padrão
+          if (action === 'getConfig') {
+            data = {
+              telefone_whatsapp: '',
+              moeda: 'R$',
+              nome_loja: 'Loja',
+              pedido_minimo_entrega: 0,
+              mensagem_retirada: 'Pedido disponível para retirada em 20 minutos'
+            };
+          } else if (action === 'getCupons') {
+            data = { cupons: [] };
+          } else {
+            data = [];
+          }
+        }
+
+        // ⭐⭐ APENAS para getPedidos e getCupons, ajuste de formato
+        if (action === 'getPedidos' && data && data.pedidos !== undefined) {
+          console.log('[GET Pedidos] Convertendo de {pedidos: []} para []');
+          data = data.pedidos;
+        }
+        
+        // Para getCupons, mantenha o formato { cupons: [] }
+        if (action === 'getCupons' && data && !data.cupons) {
+          console.log('[GET Cupons] Padronizando formato para { cupons: [] }');
+          data = { cupons: Array.isArray(data) ? data : [] };
+        }
+
+        // Retorna os dados diretamente
+        return res.json(data);
+
+      } catch (fetchError) {
+        console.error(`[GET ${action} FETCH ERROR]:`, fetchError.message);
+        
+        // Retornar resposta segura em caso de erro
+        if (action === 'getConfig') {
+          return res.json({
+            telefone_whatsapp: '',
+            moeda: 'R$',
+            nome_loja: 'Loja',
+            pedido_minimo_entrega: 0,
+            mensagem_retirada: 'Pedido disponível para retirada em 20 minutos'
+          });
+        } else if (action === 'getCupons') {
+          return res.json({ cupons: [] });
+        } else {
+          return res.json([]);
+        }
       }
     }
 
-    // ⭐⭐ NÃO FAÇA PROCESSAMENTO ESPECIAL - já está correto do Google Script
-    // O Google Script já retorna o formato correto
-    // REMOVA TODO O BLOCO DE "PROCESSAMENTO ESPECÍFICO PARA CADA AÇÃO"
-    
-    // ⭐⭐ APENAS para getPedidos, o seu script retorna { pedidos: [] }
-    // mas provavelmente sua aplicação espera apenas o array
-    if (action === 'getPedidos' && data && data.pedidos !== undefined) {
-      console.log('[GET Pedidos] Convertendo de {pedidos: []} para []');
-      data = data.pedidos;
-    }
-
-    // Retorna os dados diretamente
-    return res.json(data);
-
-  } catch (fetchError) {
-    console.error(`[GET ${action} FETCH ERROR]:`, fetchError.message);
-    
-    // Retornar resposta segura em caso de erro
-    if (action === 'getConfig') {
-      return res.json({
-        telefone_whatsapp: '',
-        moeda: 'R$',
-        nome_loja: 'Loja',
-        pedido_minimo_entrega: 0,
-        mensagem_retirada: 'Pedido disponível para retirada em 20 minutos'
-      });
-    } else {
-      return res.json([]);
-    }
-  }
-}
-
-    // 🔴 ROTA POST - CORRIGIDA!
+    // 🔴 ROTA POST - ATUALIZADO COM AÇÕES DE CUPOM
     if (req.method === 'POST') {
       console.log(`[POST] Ação: ${action}, Body:`, req.body);
 
-      
-      // AÇÕES PERMITIDAS POST
+      // AÇÕES PERMITIDAS POST - ADICIONE as 3 novas ações de cupom
       const allowedPostActions = [
         'salvarPedido', 'atualizarStatus', 'saveProduct',
-        'deleteProduct', 'salvarCategoria', 'deletarCategoria'
+        'deleteProduct', 'salvarCategoria', 'deletarCategoria',
+        'validarCupom', 'salvarCupom', 'registrarUsoCupom' // 👈 NOVAS AÇÕES ADICIONADAS
       ];
       
       if (!allowedPostActions.includes(action)) {
@@ -174,7 +182,7 @@ if (req.method === 'GET') {
       console.log(`[POST] Enviando para: ${url}`);
       console.log(`[POST] Body detalhado:`, JSON.stringify(req.body, null, 2));
 
-      // Validações específicas por ação
+      // Validações específicas por ação - ADICIONE para cupons
       if (action === 'saveProduct') {
         console.log('[PRODUTO] Operação:', req.body.id ? `UPDATE (id: ${req.body.id})` : 'INSERT');
         console.log('[PRODUTO] Campos:', {
@@ -205,8 +213,32 @@ if (req.method === 'GET') {
         console.log('[CATEGORIA DELETE] ID:', req.body.id);
       }
 
-      // ⭐⭐⭐ CORREÇÃO CRÍTICA: O Google Apps Script espera que o body seja uma STRING JSON
-      // Não um objeto, mas uma string que será parseada pelo script
+      // Validações para ações de cupom
+      if (action === 'validarCupom') {
+        console.log('[CUPOM VALIDAR] Dados:', {
+          codigo: req.body.codigo,
+          subtotal: req.body.subtotal,
+          tipo_entrega: req.body.tipo_entrega // opcional para validação específica
+        });
+      }
+
+      if (action === 'salvarCupom') {
+        console.log('[CUPOM SALVAR] Operação:', req.body.código ? `UPDATE (${req.body.código})` : 'INSERT');
+        console.log('[CUPOM SALVAR] Campos:', {
+          código: req.body.código || 'novo',
+          tipo_desconto: req.body.tipo_desconto,
+          valor_desconto: req.body.valor_desconto,
+          data_validade: req.body.data_validade,
+          uso_maximo: req.body.uso_maximo,
+          status: req.body.status
+        });
+      }
+
+      if (action === 'registrarUsoCupom') {
+        console.log('[CUPOM REGISTRAR USO] Código:', req.body.codigo);
+      }
+
+      // ⭐⭐ CORREÇÃO CRÍTICA: O Google Apps Script espera que o body seja uma STRING JSON
       const bodyString = JSON.stringify(req.body);
       
       console.log(`[POST DEBUG] Enviando como string JSON:`, {
@@ -226,7 +258,7 @@ if (req.method === 'GET') {
           'Accept': 'application/json',
           'User-Agent': 'Mozilla/5.0'
         },
-        body: bodyString // ⬅️ Enviar como STRING, não como objeto
+        body: bodyString
       });
 
       const responseText = await response.text();
@@ -255,7 +287,12 @@ if (req.method === 'GET') {
       console.log(`[POST SUCCESS - ${action}]:`, {
         success: result.success,
         message: result.message,
-        error: result.error
+        error: result.error,
+        // Logs específicos para cupom
+        ...(action === 'validarCupom' && {
+          valido: result.valido,
+          valor_calculado: result.valor_calculado
+        })
       });
 
       return res.status(200).json(result);
