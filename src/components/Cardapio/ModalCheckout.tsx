@@ -474,21 +474,22 @@ const validarCupomFrontend = async () => {
   }
 };
 
-  const handleConfirmarPedidoLocal = async () => {
-    try {
-      const resposta = await onFinalizarPedido({
-        observacoes,
-        formaPagamento: 'local',
-        comanda: comandaNumero,
-        querWhatsApp: false
-      });
-      
-      handleRespostaPedido(resposta);
-    } catch (error) {
-      console.error('Erro ao confirmar pedido local:', error);
-    }
-  };
-
+ const handleConfirmarPedidoLocal = async () => {
+  try {
+    const resposta = await onFinalizarPedido({
+      observacoes,
+      formaPagamento: 'local',
+      comanda: comandaNumero,
+      tipo: 'local', // ← ADICIONE
+      tipo_entrega: 'local', // ← ADICIONE
+      querWhatsApp: false
+    });
+    
+    handleRespostaPedido(resposta);
+  } catch (error) {
+    console.error('Erro ao confirmar pedido local:', error);
+  }
+};
   // Modal de confirmação para consumo no local
   if (mostrarModalConfirmacao && tipoEntrega === 'local') {
     return (
